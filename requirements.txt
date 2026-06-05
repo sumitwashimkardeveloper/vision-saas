@@ -1,0 +1,20 @@
+# Core recognition (no compiler required)
+#   Detection : OpenCV YuNet (bundled with opencv-python)
+#   Embeddings: ArcFace w600k_r50 ONNX, run via onnxruntime
+onnxruntime==1.19.2          # swap for onnxruntime-gpu on production GPU hosts
+opencv-python>=4.9           # provides cv2.FaceDetectorYN for YuNet detection
+numpy>=1.26,<2.3
+
+# Data layer
+SQLAlchemy>=2.0
+alembic>=1.13
+
+# Config / downloads
+PyYAML>=6.0
+
+# NOTE: The full `insightface` package is intentionally NOT a dependency.
+# On Windows it requires the MSVC C++ Build Tools to compile a Cython extension
+# we don't use. We run the same ArcFace model directly through onnxruntime
+# instead. On a Linux GPU server you may still `pip install insightface` if you
+# prefer its all-in-one pipeline -- the gallery format is compatible. See
+# docs/decisions.md ADR-001.

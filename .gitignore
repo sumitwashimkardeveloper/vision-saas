@@ -1,8 +1,9 @@
 # Virtual environments
 venv/
 
-# Documentation build
-docs/
+# Documentation build (generated output only — hand-written specs in docs/ are tracked)
+docs/_build/
+site/
 
 # Environment variables
 .env
@@ -21,3 +22,13 @@ dist/
 
 # OS files
 .DS_Store
+
+# Runtime data (tenant images, snapshots, embeddings, sqlite db)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Downloaded model weights
+~/.insightface/
+models/

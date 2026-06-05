@@ -1,0 +1,32 @@
+# Offline Multi-Tenant Face Recognition - local config
+# Paths are resolved relative to the project root unless absolute.
+
+storage:
+  data_dir: data            # tenants/, events/, snapshots/, vision.db live here
+  db_file: vision.db        # SQLite file inside data_dir
+
+recognition:
+  # ONNX model files (relative to project root). Fetch via scripts/download_models.py.
+  detector_model: models/face_detection_yunet_2023mar.onnx   # OpenCV YuNet
+  recognition_model: models/w600k_r50.onnx                   # ArcFace, 512-d
+  # ONNX Runtime providers, tried in order. Use CUDAExecutionProvider first on GPU hosts.
+  providers:
+    - CPUExecutionProvider
+  # YuNet detector input size (w, h). Larger = more accurate, slower.
+  det_size: [640, 640]
+  # YuNet detection confidence threshold (0..1).
+  det_thresh: 0.6
+  # YuNet non-max-suppression threshold.
+  nms_thresh: 0.3
+  # Cosine-similarity threshold for a positive ArcFace identity match (0..1).
+  match_threshold: 0.38
+  # Whether to log faces that match nobody as "unknown" events.
+  log_unknowns: false
+
+stream:
+  # Target recognition FPS per stream (frames are sampled down to this rate).
+  target_fps: 2.0
+  # Seconds to wait before reconnecting after a read failure.
+  reconnect_delay: 3.0
+  # Max consecutive failed reads before forcing a reconnect.
+  max_read_failures: 30
