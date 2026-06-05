@@ -1,0 +1,23 @@
+# Virtual environments
+venv/
+
+# Documentation build
+docs/
+
+# Environment variables
+.env
+
+# Byte-compiled files
+__pycache__/
+
+# Distribution files
+dist/
+
+# IDE files
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
