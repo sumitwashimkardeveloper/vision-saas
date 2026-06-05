@@ -7,16 +7,54 @@ the relative path so the UI (Phase 5) can render them.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import cv2
 import numpy as np
+from sqlalchemy.orm import Session
 
 from .config import AppConfig
 from .recognizer import MatchResult
 from .repository import TenantRepository
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MatchEvent:
+    """A recognition result ready to be persisted. Decoupled from the DB session
+    so it can be queued and written in batches (Phase 4 EventBatcher)."""
+
+    tenant_id: str
+    label: str
+    score: float
+    camera_id: int | None = None
+    person_key: str | None = None      # resolved to person_id at write time
+    snapshot_path: str | None = None
+
+
+def persist_event(session: Session, event: MatchEvent) -> None:
+    """Write a single MatchEvent within an existing session."""
+    repo = TenantRepository(session, event.tenant_id)
+    person_id = None
+    if event.person_key:
+        person = repo.get_person_by_key(event.person_key)
+        person_id = person.id if person else None
+    repo.add_event(
+        label=event.label,
+        score=event.score,
+        camera_id=event.camera_id,
+        person_id=person_id,
+        snapshot_path=event.snapshot_path,
+    )
+
+
+def persist_events(session: Session, events: list[MatchEvent]) -> int:
+    """Write a batch of MatchEvents within one session/transaction."""
+    for event in events:
+        persist_event(session, event)
+    return len(events)
 
 
 def _timestamp_slug() -> str:

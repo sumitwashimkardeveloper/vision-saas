@@ -4,17 +4,23 @@ Local, fully offline, multi-tenant face recognition for on-prem hardware.
 See [docs/plan.md](docs/plan.md), [docs/phases.md](docs/phases.md), and
 [docs/decisions.md](docs/decisions.md).
 
-Phase 1 (Foundation) is implemented: tenant-aware DB, gallery + embeddings
-cache, RTSP reader, and a single-tenant recognition loop.
+Implemented:
+- Phase 1 (Foundation): tenant-aware DB, gallery + embeddings cache, RTSP reader,
+  single-camera recognition loop.
+- Phase 2 (Multi-Tenant Core): tenant management CLI, a multi-tenant supervisor
+  that runs every enabled camera across all tenants, and isolation tests.
 
 ## Layout
 ```
-apps/core      shared library (config, db, models, detector, recognizer, gallery, stream, pipeline)
-apps/worker    stream_worker.py  -- single-tenant recognition loop
+apps/core      shared library (config, db, models, repository, tenant_service,
+               detector, recognizer, gallery, stream, pipeline)
+apps/worker    camera_worker.py (per-camera loop), stream_worker.py (single camera),
+               supervisor.py (all cameras across all tenants)
 apps/api       (Phase 3 -- FastAPI, empty for now)
 configs        app.yaml
 migrations     Alembic (SQLite, WAL)
-scripts        init_db.py, build_gallery.py
+scripts        init_db.py, download_models.py, build_gallery.py, manage.py
+tests          pytest: tenant isolation + management
 data           runtime data (gitignored): tenants/, snapshots/, vision.db
 ```
 
@@ -38,13 +44,37 @@ data           runtime data (gitignored): tenants/, snapshots/, vision.db
 #    (optional metadata in data/tenants/tenant_001/people.json)
 .\venv\Scripts\python.exe -m scripts.build_gallery --tenant tenant_001
 
-# 3. Run recognition on the camera
+# 3. Run recognition on one camera
 .\venv\Scripts\python.exe -m apps.worker.stream_worker --tenant tenant_001 --camera "Front Door"
 ```
 
 `people.json` (optional):
 ```json
 { "alice": { "name": "Alice Smith", "role": "staff", "details": "Floor 2" } }
+```
+
+## Multi-tenant (Phase 2)
+Manage tenants, cameras, and people with the admin CLI:
+```powershell
+.\venv\Scripts\python.exe -m scripts.manage tenant create --id tenant_002 --name "Beta Corp"
+.\venv\Scripts\python.exe -m scripts.manage tenant list
+.\venv\Scripts\python.exe -m scripts.manage camera add --tenant tenant_002 --name "Lobby" --rtsp "rtsp://..."
+.\venv\Scripts\python.exe -m scripts.manage person add --tenant tenant_002 --key carla --name "Carla" --role staff
+.\venv\Scripts\python.exe -m scripts.manage person list --tenant tenant_002
+.\venv\Scripts\python.exe -m scripts.manage events --tenant tenant_002 --limit 20
+.\venv\Scripts\python.exe -m scripts.manage tenant delete --id tenant_002   # purges DB rows + files
+```
+
+Run recognition for **every enabled camera across all tenants** on one server:
+```powershell
+.\venv\Scripts\python.exe -m apps.worker.supervisor                  # all tenants
+.\venv\Scripts\python.exe -m apps.worker.supervisor --tenant tenant_001
+```
+Ctrl+C stops all camera workers gracefully.
+
+## Tests
+```powershell
+.\venv\Scripts\python.exe -m pytest
 ```
 
 ## Configuration

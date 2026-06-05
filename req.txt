@@ -12,6 +12,17 @@ alembic>=1.13
 # Config / downloads
 PyYAML>=6.0
 
+# API + auth (Phase 3)
+fastapi>=0.110
+uvicorn>=0.29
+PyJWT>=2.8
+bcrypt>=4.1
+python-multipart>=0.0.9   # required by FastAPI for file uploads (enrollment images)
+
+# Tests (dev)
+pytest>=8.0
+httpx>=0.27               # required by FastAPI's TestClient
+
 # NOTE: The full `insightface` package is intentionally NOT a dependency.
 # On Windows it requires the MSVC C++ Build Tools to compile a Cython extension
 # we don't use. We run the same ArcFace model directly through onnxruntime

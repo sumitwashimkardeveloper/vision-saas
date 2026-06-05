@@ -1,0 +1,20 @@
+{
+  "name": "vision-frontend",
+  "private": true,
+  "version": "0.5.0",
+  "type": "module",
+  "description": "React admin dashboard for the offline face-recognition system",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}

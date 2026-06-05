@@ -85,6 +85,22 @@ class TenantRepository:
         self.session.flush()
         return camera
 
+    def delete_camera(self, camera_id: int) -> bool:
+        camera = self.get_camera(camera_id)
+        if camera is None:
+            return False
+        self.session.delete(camera)
+        self.session.flush()
+        return True
+
+    def delete_person(self, external_key: str) -> bool:
+        person = self.get_person_by_key(external_key)
+        if person is None:
+            return False
+        self.session.delete(person)
+        self.session.flush()
+        return True
+
     # ---- Events -----------------------------------------------------------
     def add_event(
         self,
@@ -113,6 +129,30 @@ class TenantRepository:
             .order_by(Event.ts.desc())
             .limit(limit)
         )
+        return self.session.scalars(stmt).all()
+
+    def search_events(
+        self,
+        label: str | None = None,
+        camera_id: int | None = None,
+        person_id: int | None = None,
+        since: "datetime | None" = None,
+        until: "datetime | None" = None,
+        limit: int = 100,
+    ) -> Sequence[Event]:
+        """Filtered, tenant-scoped event query (Phase 5 timeline/search)."""
+        stmt = select(Event).where(Event.tenant_id == self.tenant_id)
+        if label:
+            stmt = stmt.where(Event.label.ilike(f"%{label}%"))
+        if camera_id is not None:
+            stmt = stmt.where(Event.camera_id == camera_id)
+        if person_id is not None:
+            stmt = stmt.where(Event.person_id == person_id)
+        if since is not None:
+            stmt = stmt.where(Event.ts >= since)
+        if until is not None:
+            stmt = stmt.where(Event.ts <= until)
+        stmt = stmt.order_by(Event.ts.desc()).limit(limit)
         return self.session.scalars(stmt).all()
 
 

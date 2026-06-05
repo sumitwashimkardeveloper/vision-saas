@@ -35,6 +35,26 @@ class Tenant(Base):
     cameras: Mapped[list["Camera"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     people: Mapped[list["Person"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     events: Mapped[list["Event"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+    users: Mapped[list["User"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+
+
+class User(Base):
+    """A tenant admin account. Login is scoped to a tenant (ADR-003): the
+    authenticated user's tenant_id drives all data access in the API."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    username: Mapped[str] = mapped_column(String(128))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(32), default="admin")
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    tenant: Mapped[Tenant] = relationship(back_populates="users")
+
+    __table_args__ = (UniqueConstraint("tenant_id", "username", name="uq_user_tenant_username"),)
 
 
 class Camera(Base):

@@ -23,15 +23,22 @@ Exit criteria:
 - Recognition works and logs events
 - All data access is tenant-scoped (no raw, unscoped queries)
 
-## Phase 2 - Multi-Tenant Core
-- Run multiple tenants on the same server (schema already tenant-aware)
-- Per-tenant gallery and embeddings
-- Per-tenant events and snapshots
-- Tenant CRUD + management
+## Phase 2 - Multi-Tenant Core (implemented)
+- [x] Run multiple tenants on the same server (schema already tenant-aware)
+- [x] Per-tenant gallery and embeddings (per-tenant `gallery.npz`)
+- [x] Per-tenant events and snapshots
+- [x] Tenant CRUD + management (`apps/core/tenant_service.py`, `scripts/manage.py`)
+- [x] Multi-tenant supervisor: one CameraWorker thread per enabled camera across
+      all tenants (`apps/worker/supervisor.py`), shared per-tenant gallery
+- [x] Bounded RTSP open/read timeouts + interruptible reconnect for responsive shutdown
 
 Exit criteria:
-- Multiple tenants on same server
-- Tenant data is provably isolated (no cross-tenant reads)
+- [x] Multiple tenants on same server (supervisor runs all enabled cameras)
+- [x] Tenant data is provably isolated (no cross-tenant reads) — `tests/test_isolation.py`
+
+Deferred to Phase 4 (per the plan): process-based scaling, frame sampling/
+backpressure tuning, health checks, and watchdogs. Phase 2 uses threads, which is
+sufficient for "many tenants on one box" but not the 50-stream target.
 
 ## Phase 3 - Local API Service + Auth
 - Build FastAPI endpoints

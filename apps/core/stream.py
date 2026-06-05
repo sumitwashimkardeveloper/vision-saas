@@ -31,8 +31,14 @@ class RTSPStream:
 
     def _open(self) -> bool:
         self._release()
-        # FFMPEG backend is the most reliable for RTSP across platforms.
-        cap = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
+        # FFMPEG backend is the most reliable for RTSP across platforms. Bound the
+        # open/read time so a dead camera fails fast instead of blocking for the
+        # FFMPEG default (tens of seconds), which would also delay shutdown.
+        params = [
+            cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, self.config.open_timeout_ms,
+            cv2.CAP_PROP_READ_TIMEOUT_MSEC, self.config.read_timeout_ms,
+        ]
+        cap = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG, params)
         # Keep buffer small so we read fresh frames, not a stale backlog.
         try:
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
@@ -54,6 +60,12 @@ class RTSPStream:
     def stop(self) -> None:
         self._stop = True
 
+    def _interruptible_sleep(self, seconds: float) -> None:
+        """Sleep in small slices so stop() is honored promptly during backoff."""
+        deadline = time.monotonic() + seconds
+        while not self._stop and time.monotonic() < deadline:
+            time.sleep(min(0.2, max(0.0, deadline - time.monotonic())))
+
     def frames(self) -> Iterator[np.ndarray]:
         """Yield sampled BGR frames, reconnecting as needed, until stop()."""
         min_interval = 1.0 / self.config.target_fps if self.config.target_fps > 0 else 0.0
@@ -62,7 +74,7 @@ class RTSPStream:
 
         while not self._stop:
             if self._cap is None and not self._open():
-                time.sleep(self.config.reconnect_delay)
+                self._interruptible_sleep(self.config.reconnect_delay)
                 continue
 
             ok, frame = self._cap.read()
@@ -72,7 +84,7 @@ class RTSPStream:
                     logger.warning("[%s] %d read failures — reconnecting", self.name, failures)
                     self._release()
                     failures = 0
-                    time.sleep(self.config.reconnect_delay)
+                    self._interruptible_sleep(self.config.reconnect_delay)
                 continue
 
             failures = 0

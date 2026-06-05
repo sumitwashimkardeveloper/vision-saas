@@ -30,3 +30,25 @@ stream:
   reconnect_delay: 3.0
   # Max consecutive failed reads before forcing a reconnect.
   max_read_failures: 30
+  # Bound RTSP open/read blocking (ms) so dead cameras fail fast and shutdown is responsive.
+  open_timeout_ms: 5000
+  read_timeout_ms: 5000
+
+auth:
+  # IMPORTANT: override in production via the VISION_SECRET_KEY environment variable.
+  # The value below is for local development only.
+  secret_key: "dev-only-change-me"
+  algorithm: HS256
+  access_token_expire_minutes: 720  # 12 hours
+
+worker:
+  # One OS process per this many cameras (Phase 4 scaling). Tune to CPU/GPU.
+  cameras_per_process: 4
+  # Batch event DB writes to reduce SQLite write contention.
+  event_batch_size: 20
+  event_batch_interval_sec: 2.0
+  # Watchdog: restart a worker process that dies or stops heartbeating.
+  heartbeat_interval_sec: 5.0
+  heartbeat_timeout_sec: 30.0
+  watchdog_poll_sec: 2.0
+  restart_backoff_sec: 5.0
