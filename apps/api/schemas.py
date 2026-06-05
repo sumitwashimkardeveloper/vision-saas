@@ -8,9 +8,24 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class LoginRequest(BaseModel):
+    username: str
+    password: str
+    # Optional: legacy tenant-scoped login still works if supplied. The dashboard
+    # logs in with username + password only (usernames are globally unique).
+    tenant_id: str | None = None
+
+
+class RegisterRequest(BaseModel):
+    """Self-service signup: creates a tenant and its first admin together.
+
+    Field-level rules are enforced in the auth router so error messages are
+    plain strings (mirrored by the frontend)."""
+    tenant_name: str
     tenant_id: str
     username: str
     password: str
+    confirm_password: str
+    accept_terms: bool = False
 
 
 class TokenResponse(BaseModel):

@@ -21,6 +21,16 @@ def get_user(session: Session, tenant_id: str, username: str) -> User | None:
     return session.scalars(stmt).first()
 
 
+def username_taken(session: Session, username: str) -> bool:
+    """True if the username exists for *any* tenant.
+
+    Self-service registration enforces global username uniqueness so that login
+    can resolve an account from username + password alone (no tenant field).
+    """
+    stmt = select(User.id).where(User.username == username)
+    return session.scalars(stmt).first() is not None
+
+
 def list_users(session: Session, tenant_id: str) -> Sequence[User]:
     stmt = select(User).where(User.tenant_id == tenant_id).order_by(User.username)
     return session.scalars(stmt).all()
@@ -55,3 +65,17 @@ def authenticate(session: Session, tenant_id: str, username: str, password: str)
     if not verify_password(password, user.password_hash):
         return None
     return user
+
+
+def authenticate_global(session: Session, username: str, password: str) -> User | None:
+    """Authenticate by username + password without a tenant hint.
+
+    Usernames created via self-service registration are globally unique, so at
+    most one account matches; we still loop defensively in case older CLI-created
+    accounts reused a username across tenants.
+    """
+    stmt = select(User).where(User.username == username)
+    for user in session.scalars(stmt).all():
+        if user.is_active and verify_password(password, user.password_hash):
+            return user
+    return None

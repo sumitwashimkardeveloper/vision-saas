@@ -157,6 +157,31 @@ th {
   color: var(--muted);
 }
 
+/* Enrolled-face thumbnails and the file picker preview. */
+.thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.thumb-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  background: #0c0e14;
+}
+
+.filepick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .err {
   color: var(--danger);
   min-height: 18px;
@@ -178,4 +203,71 @@ th {
 .login .panel > * {
   width: 100%;
   margin-bottom: 10px;
+}
+
+/* Password field with show/hide eye toggle. */
+.pw {
+  position: relative;
+}
+
+.pw input {
+  width: 100%;
+  padding-right: 38px;
+}
+
+.pw-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: 0;
+  padding: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.pw-toggle:hover {
+  color: var(--fg);
+}
+
+/* Terms & privacy consent row. */
+.terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.terms input {
+  width: auto;
+  margin-top: 2px;
+}
+
+.terms a {
+  color: var(--accent);
+}
+
+/* Footer link to switch between sign in / create account. */
+.auth-switch {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 0;
+}
+
+.linkbtn {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+}
+
+.linkbtn:hover {
+  text-decoration: underline;
 }

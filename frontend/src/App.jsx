@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { setToken, setUnauthorizedHandler } from "./api.js";
 import Login from "./components/Login.jsx";
+import Register from "./components/Register.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 
 function loadSession() {
@@ -13,6 +14,7 @@ export default function App() {
   // api.js already reads the token from localStorage at import time, so a
   // refresh keeps working without waiting for an effect.
   const [session, setSession] = useState(loadSession);
+  const [authMode, setAuthMode] = useState("login"); // "login" | "register"
 
   function handleLogout() {
     localStorage.removeItem("vfr_token");
@@ -33,9 +35,12 @@ export default function App() {
     setSession({ token: accessToken, identity });
   }
 
-  return session ? (
-    <Dashboard identity={session.identity} onLogout={handleLogout} />
+  if (session) {
+    return <Dashboard identity={session.identity} onLogout={handleLogout} />;
+  }
+  return authMode === "register" ? (
+    <Register onLogin={handleLogin} onSwitch={() => setAuthMode("login")} />
   ) : (
-    <Login onLogin={handleLogin} />
+    <Login onLogin={handleLogin} onSwitch={() => setAuthMode("register")} />
   );
 }

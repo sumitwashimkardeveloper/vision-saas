@@ -56,6 +56,12 @@ export async function postForm(path, formData) {
   return res.json();
 }
 
+export async function putForm(path, formData) {
+  const res = await request(path, { method: "PUT", body: formData });
+  if (!res.ok) throw new Error(await errorText(res));
+  return res.json();
+}
+
 export async function del(path) {
   const res = await request(path, { method: "DELETE" });
   if (!res.ok) throw new Error(await errorText(res));
@@ -68,13 +74,37 @@ export async function getBlob(path) {
   return res.blob();
 }
 
-// Login is unauthenticated, so it bypasses the bearer-token request wrapper.
-export async function login(tenantId, username, password) {
+// Pull a human-readable message out of an auth error response. FastAPI sends
+// `detail` as a string for our 400/401/409s, or an array for 422 validation.
+async function authError(res, fallback) {
+  try {
+    const body = await res.json();
+    const d = body.detail;
+    if (typeof d === "string") return d;
+    if (Array.isArray(d) && d.length) return d[0].msg || fallback;
+  } catch {
+    /* non-JSON body */
+  }
+  return fallback;
+}
+
+// Auth endpoints are unauthenticated, so they bypass the bearer-token wrapper.
+export async function login(username, password) {
   const res = await fetch("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tenant_id: tenantId, username, password }),
+    body: JSON.stringify({ username, password }),
   });
-  if (!res.ok) throw new Error("Invalid credentials");
+  if (!res.ok) throw new Error(await authError(res, "Invalid credentials"));
+  return res.json();
+}
+
+export async function register(payload) {
+  const res = await fetch("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await authError(res, "Registration failed"));
   return res.json();
 }

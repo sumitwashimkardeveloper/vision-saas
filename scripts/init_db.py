@@ -14,28 +14,11 @@ from __future__ import annotations
 import argparse
 import logging
 
-from alembic import command
-from alembic.config import Config as AlembicConfig
-
-from apps.core.config import PROJECT_ROOT, load_config
-from apps.core.db import get_engine, session_scope
-from apps.core.models import Base
+from apps.core.config import load_config
+from apps.core.db import ensure_schema, session_scope
 from apps.core.repository import TenantRepository, ensure_tenant
 
 logger = logging.getLogger("init_db")
-
-
-def create_schema(config) -> None:
-    """Run Alembic migrations if configured, else create tables directly."""
-    alembic_ini = PROJECT_ROOT / "alembic.ini"
-    if alembic_ini.exists():
-        alembic_cfg = AlembicConfig(str(alembic_ini))
-        alembic_cfg.set_main_option("sqlalchemy.url", config.db_url)
-        command.upgrade(alembic_cfg, "head")
-        logger.info("applied Alembic migrations -> head")
-    else:
-        Base.metadata.create_all(get_engine(config))
-        logger.info("created schema via metadata.create_all (no alembic.ini found)")
 
 
 def main() -> None:
@@ -50,7 +33,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     config = load_config(args.config)
 
-    create_schema(config)
+    ensure_schema(config)
     config.ensure_tenant_dirs(args.tenant)
 
     with session_scope(config) as session:

@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 
 from apps.api.deps import get_config, get_current_user, get_tenant_repo
 from apps.api.schemas import (
@@ -71,6 +72,62 @@ async def upload_image(
     dest = folder / f"{int(time.time() * 1000)}{ext}"
     dest.write_bytes(await file.read())
     return MessageResult(message=f"saved {dest.name} (rebuild the gallery to apply)")
+
+
+@router.put("/{external_key}/image", response_model=MessageResult)
+async def replace_image(
+    external_key: str,
+    file: UploadFile = File(...),
+    repo: TenantRepository = Depends(get_tenant_repo),
+    config: AppConfig = Depends(get_config),
+    user: User = Depends(get_current_user),
+):
+    """Replace the person's enrollment image: clear existing ones, save this."""
+    if repo.get_person_by_key(external_key) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
+
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _IMAGE_EXTS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"unsupported image type '{ext}'",
+        )
+
+    folder = config.people_dir(user.tenant_id) / external_key
+    folder.mkdir(parents=True, exist_ok=True)
+    for existing in folder.iterdir():
+        if existing.is_file() and existing.suffix.lower() in _IMAGE_EXTS:
+            existing.unlink()
+
+    dest = folder / f"{int(time.time() * 1000)}{ext}"
+    dest.write_bytes(await file.read())
+    return MessageResult(message=f"replaced image with {dest.name} (rebuild the gallery to apply)")
+
+
+@router.get("/{external_key}/image")
+def get_person_image(
+    external_key: str,
+    repo: TenantRepository = Depends(get_tenant_repo),
+    config: AppConfig = Depends(get_config),
+    user: User = Depends(get_current_user),
+):
+    """Return the person's most recently uploaded enrollment image (for previews)."""
+    if repo.get_person_by_key(external_key) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
+
+    folder = config.people_dir(user.tenant_id) / external_key
+    images = (
+        sorted(
+            (p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in _IMAGE_EXTS),
+            key=lambda p: p.stat().st_mtime,
+        )
+        if folder.exists()
+        else []
+    )
+    if not images:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No image for this person")
+    # Newest image last after the mtime sort.
+    return FileResponse(str(images[-1]))
 
 
 @router.delete("/{external_key}", response_model=MessageResult)

@@ -21,7 +21,15 @@ export default function Cameras() {
   }, []);
 
   async function add() {
-    if (!name.trim() || !rtsp.trim()) return;
+    setErr("");
+    if (!name.trim()) {
+      setErr("Camera name is required");
+      return;
+    }
+    if (!rtsp.trim()) {
+      setErr("RTSP URL is required");
+      return;
+    }
     try {
       await postJson("/cameras", { name: name.trim(), rtsp_url: rtsp.trim(), enabled: true });
       setName("");

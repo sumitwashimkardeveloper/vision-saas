@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { login } from "../api.js";
+import PasswordInput from "./PasswordInput.jsx";
 
-export default function Login({ onLogin }) {
-  const [tenant, setTenant] = useState("");
+export default function Login({ onLogin, onSwitch }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
@@ -11,12 +11,16 @@ export default function Login({ onLogin }) {
   async function submit(e) {
     e.preventDefault();
     setErr("");
+    if (!username.trim() || !password) {
+      setErr("Enter your username and password");
+      return;
+    }
     setBusy(true);
     try {
-      const data = await login(tenant.trim(), username.trim(), password);
+      const data = await login(username.trim(), password);
       onLogin(data.access_token, { tenant_id: data.tenant_id, role: data.role });
-    } catch {
-      setErr("Invalid credentials");
+    } catch (e2) {
+      setErr(e2.message || "Invalid credentials");
     } finally {
       setBusy(false);
     }
@@ -27,24 +31,24 @@ export default function Login({ onLogin }) {
       <form className="panel" onSubmit={submit}>
         <h2>Sign in</h2>
         <input
-          value={tenant}
-          onChange={(e) => setTenant(e.target.value)}
-          placeholder="Tenant ID (e.g. tenant_001)"
-          autoFocus
-        />
-        <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           placeholder="Username"
+          autoFocus
         />
-        <input
-          type="password"
+        <PasswordInput
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
         />
         <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         <div className="err">{err}</div>
+        <div className="auth-switch">
+          New here?{" "}
+          <button type="button" className="linkbtn" onClick={onSwitch}>
+            Create a new account
+          </button>
+        </div>
       </form>
     </div>
   );

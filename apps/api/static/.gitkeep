@@ -1,3 +1,0 @@
-# Keeps this directory present so FastAPI's StaticFiles mount works before the
-# React app is built. `npm run build` (in frontend/) emits index.html + assets/
-# here; those build outputs are gitignored.

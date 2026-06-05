@@ -44,6 +44,43 @@ def get_session_factory(config: AppConfig) -> sessionmaker[Session]:
     return _SessionFactory
 
 
+def ensure_schema(config: AppConfig) -> None:
+    """Create the DB schema if it doesn't exist yet.
+
+    Idempotent and safe to call on every API startup, so a fresh install can
+    register a tenant without a separate ``init_db`` step.
+
+    Fast path: if the core tables already exist we return immediately and never
+    touch Alembic. That keeps normal restarts instant and — importantly — avoids
+    Alembic's in-process ``fileConfig`` call, which would otherwise reconfigure
+    logging and silence uvicorn's startup banner.
+    """
+    from sqlalchemy import inspect
+
+    engine = get_engine(config)
+    inspector = inspect(engine)
+    if inspector.has_table("tenants") and inspector.has_table("users"):
+        return
+
+    from .config import PROJECT_ROOT  # local import avoids any import cycle
+
+    migrations_dir = PROJECT_ROOT / "migrations"
+    if migrations_dir.exists():
+        from alembic import command
+        from alembic.config import Config as AlembicConfig
+
+        # Build the config programmatically (no .ini file) so env.py skips its
+        # fileConfig() call and leaves the host app's loggers untouched.
+        alembic_cfg = AlembicConfig()
+        alembic_cfg.set_main_option("script_location", str(migrations_dir))
+        alembic_cfg.set_main_option("sqlalchemy.url", config.db_url)
+        command.upgrade(alembic_cfg, "head")
+    else:
+        from .models import Base
+
+        Base.metadata.create_all(engine)
+
+
 @contextmanager
 def session_scope(config: AppConfig) -> Iterator[Session]:
     """Transactional session: commits on success, rolls back on error."""

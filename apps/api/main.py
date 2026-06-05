@@ -9,20 +9,33 @@ Interactive docs at http://127.0.0.1:8000/docs
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from apps.api.deps import get_config
 from apps.api.routers import auth, cameras, events, meta, people, tenant
+from apps.core.db import ensure_schema
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create/upgrade the DB schema on startup so a fresh install can register a
+    # tenant from the dashboard without a separate init_db step.
+    ensure_schema(get_config())
+    yield
+
 
 app = FastAPI(
     title="Offline Multi-Tenant Face Recognition API",
     version="0.5.0",
     description="Local admin API + dashboard: auth, cameras, people, events (tenant-scoped).",
+    lifespan=lifespan,
 )
 
 app.include_router(meta.router)
