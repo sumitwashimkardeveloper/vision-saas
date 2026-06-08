@@ -1,26 +1,32 @@
 """CameraWorker: the recognition loop for a single camera, runnable as a thread.
 
-Phase 1 ran this loop inline for one camera. Phase 2 reuses it both for the
-standalone single-camera worker and for the multi-tenant supervisor, which runs
-one CameraWorker per enabled camera. Each worker owns its own RTSP connection
-and detector; the tenant gallery is shared read-only across a tenant's cameras.
+Fix 4 — Shared FrameBuffer: CameraWorker now reads frames from
+         apps.core.frame_buffer.get_buffer() instead of opening its own
+         RTSPStream connection. When Path A (worker) and Path B (live stream)
+         run in the same process they share one RTSP connection per camera.
+         In subprocess deployments each process has its own FrameBuffer
+         instance but the code is structured for future in-process sharing.
 
-Phase 4 will replace this thread-based model with a process pool plus frame
-sampling/backpressure and watchdogs.
+Fix 7 — EventBatcher: the supervisor always passes event_sink=batcher.add so
+         all CameraWorker threads funnel DB writes through a single writer
+         thread, eliminating per-event SQLite lock contention (ADR-002).
 """
 
 from __future__ import annotations
 
 import logging
 import threading
+import time
 from typing import Callable
+
+import numpy as np
 
 from apps.core.config import AppConfig
 from apps.core.db import session_scope
 from apps.core.detector import FaceDetector
+from apps.core.frame_buffer import get_buffer   # Fix 4: shared FrameBuffer
 from apps.core.pipeline import MatchEvent, persist_event, save_snapshot
 from apps.core.recognizer import Gallery, match
-from apps.core.stream import RTSPStream
 
 logger = logging.getLogger("camera_worker")
 
@@ -40,30 +46,77 @@ class CameraWorker(threading.Thread):
         super().__init__(name=f"{tenant_id}:{camera_name}", daemon=True)
         self.config = config
         self.tenant_id = tenant_id
+        self.rtsp_url = rtsp_url
         self.camera_id = camera_id
         self.camera_name = camera_name
         self.gallery = gallery
-        # If set, events are handed to the sink (e.g. EventBatcher) instead of
-        # being written directly; otherwise each event is written immediately.
         self.event_sink = event_sink
-        # One detector per worker: cv2.FaceDetectorYN is stateful (input size),
-        # so sharing across threads would race. Memory cost is revisited in Phase 4.
+        # One detector per worker: FaceDetectorYN is stateful (input size),
+        # sharing across threads would race.
         self.detector = detector or FaceDetector(config.recognition)
-        self.stream = RTSPStream(rtsp_url, config.stream, name=f"{tenant_id}:{camera_name}")
+        self._stop_evt = threading.Event()
 
     def stop(self) -> None:
-        self.stream.stop()
+        self._stop_evt.set()
 
     def run(self) -> None:
         rec = self.config.recognition
+        cfg = self.config.stream
         logger.info("[%s] starting recognition on '%s'", self.tenant_id, self.camera_name)
+
+        # Fix 4: use the shared FrameBuffer so this worker and the live-stream
+        # router share one RTSP connection when running in the same process.
+        buf = get_buffer(self.rtsp_url)
+
+        # Separate reader thread keeps the FrameBuffer polled at target_fps
+        # while the detection loop runs at whatever speed inference allows.
+        min_interval = 1.0 / cfg.target_fps if cfg.target_fps > 0 else 0.0
+
+        _latest: list[np.ndarray | None] = [None]
+        _slot_lock = threading.Lock()
+        _new_frame = threading.Event()
+        _reader_done = threading.Event()
+
+        def _reader() -> None:
+            last_emit = 0.0
+            while not self._stop_evt.is_set():
+                now = time.monotonic()
+                if now - last_emit < min_interval:
+                    time.sleep(0.005)
+                    continue
+                frame = buf.get()
+                if frame is None:
+                    # Stream stalled or not yet connected — back off briefly.
+                    time.sleep(0.1)
+                    continue
+                last_emit = now
+                with _slot_lock:
+                    _latest[0] = frame
+                _new_frame.set()
+            _reader_done.set()
+            _new_frame.set()  # wake detection loop so it exits cleanly
+
+        reader = threading.Thread(
+            target=_reader, daemon=True, name=f"{self.name}-reader"
+        )
+        reader.start()
+
         try:
-            for frame in self.stream.frames():
+            while not _reader_done.is_set():
+                _new_frame.wait(timeout=1.0)
+                _new_frame.clear()
+                with _slot_lock:
+                    frame = _latest[0]
+                if frame is None:
+                    continue
+
                 for face in self.detector.detect(frame):
                     result = match(self.gallery, face.embedding, rec.match_threshold)
                     if not result.is_match and not rec.log_unknowns:
                         continue
-                    snapshot_path = save_snapshot(self.config, self.tenant_id, frame, result.name)
+                    snapshot_path = save_snapshot(
+                        self.config, self.tenant_id, frame, result.name
+                    )
                     event = MatchEvent(
                         tenant_id=self.tenant_id,
                         label=result.name,
@@ -73,13 +126,13 @@ class CameraWorker(threading.Thread):
                         snapshot_path=snapshot_path,
                     )
                     if self.event_sink is not None:
+                        # Fix 7: non-blocking hand-off to EventBatcher
                         self.event_sink(event)
                     else:
-                        # Direct write: short-lived session keeps the SQLite write
-                        # window tiny (ADR-002).
                         with session_scope(self.config) as session:
                             persist_event(session, event)
-        except Exception:  # noqa: BLE001 - never let one camera kill the supervisor
+
+        except Exception:  # noqa: BLE001 — never let one camera kill the supervisor
             logger.exception("[%s] camera '%s' crashed", self.tenant_id, self.camera_name)
         finally:
             logger.info("[%s] worker for '%s' stopped", self.tenant_id, self.camera_name)

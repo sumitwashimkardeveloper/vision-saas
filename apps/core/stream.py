@@ -10,6 +10,7 @@ transparently reconnects when the stream drops. Designed to be iterated:
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Iterator
 
@@ -17,6 +18,24 @@ import cv2
 import numpy as np
 
 from .config import StreamConfig
+
+# FFmpeg options applied to every VideoCapture opened with CAP_FFMPEG.
+# Format: "key;value|key;value". Set before the first VideoCapture call.
+# stimeout / open_timeout_ms both guard against dead cameras; stimeout is the
+# lower-level FFmpeg socket timeout (µs) and fires even during the initial
+# DESCRIBE/SETUP handshake that CAP_PROP_OPEN_TIMEOUT_MSEC may not cover.
+os.environ.setdefault(
+    "OPENCV_FFMPEG_CAPTURE_OPTIONS",
+    "|".join([
+        "rtsp_transport;tcp",       # reliable delivery; avoids UDP packet loss
+        "stimeout;5000000",         # 5 s FFmpeg socket stall timeout (µs)
+        "buffer_size;4194304",      # 4 MB OS socket receive buffer
+        "max_delay;500000",         # max demux buffering delay (µs)
+        "analyzeduration;1000000",  # 1 s stream analysis (FFmpeg default is 5 s)
+        "probesize;1000000",        # 1 MB probe (reduces cold-connect latency)
+        "fflags;nobuffer",          # pass packets to decoder without extra buffering
+    ]),
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +63,15 @@ class RTSPStream:
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         except Exception:
             pass
+        # Request hardware-accelerated decoding when available (OpenCV ≥ 4.5.2).
+        # Falls back to software silently if the platform does not support it.
+        _hw_any = getattr(cv2, "VIDEO_ACCELERATION_ANY", None)
+        _hw_prop = getattr(cv2, "CAP_PROP_HW_ACCELERATION", None)
+        if _hw_any is not None and _hw_prop is not None:
+            try:
+                cap.set(_hw_prop, _hw_any)
+            except Exception:
+                pass
         if not cap.isOpened():
             cap.release()
             logger.warning("[%s] failed to open %s", self.name, self.url)

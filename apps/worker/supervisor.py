@@ -26,6 +26,7 @@ from apps.core.gallery import load_gallery
 from apps.core.repository import TenantRepository
 from apps.core.tenant_service import list_tenants
 from apps.worker.camera_worker import CameraWorker
+from apps.worker.event_batcher import EventBatcher   # Fix 7
 
 logger = logging.getLogger("supervisor")
 
@@ -55,14 +56,25 @@ def _collect_targets(config: AppConfig, only_tenant: str | None):
 
 def run(config: AppConfig, only_tenant: str | None = None) -> None:
     targets = _collect_targets(config, only_tenant)
+
+    if not targets:
+        logger.warning("no enabled cameras to run — nothing to do")
+        return
+
+    # Fix 7: one shared EventBatcher funnels all DB writes through a single
+    # writer thread, eliminating per-event SQLite lock contention across
+    # multiple CameraWorker threads (ADR-002).
+    batcher = EventBatcher(config)
+
     workers: list[CameraWorker] = []
     for tenant_id, gallery, cams in targets:
         for camera_id, name, rtsp in cams:
-            workers.append(CameraWorker(config, tenant_id, rtsp, camera_id, name, gallery))
-
-    if not workers:
-        logger.warning("no enabled cameras to run — nothing to do")
-        return
+            workers.append(
+                CameraWorker(
+                    config, tenant_id, rtsp, camera_id, name, gallery,
+                    event_sink=batcher.add,   # Fix 7: non-blocking hand-off
+                )
+            )
 
     stop_event = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: stop_event.set())
@@ -86,6 +98,7 @@ def run(config: AppConfig, only_tenant: str | None = None) -> None:
         w.stop()
     for w in workers:
         w.join(timeout=10)
+    batcher.stop()   # flush remaining events before exiting
     logger.info("supervisor stopped")
 
 

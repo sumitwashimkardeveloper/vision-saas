@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 
 // The app is served by FastAPI under /ui, so assets resolve from that base.
 // `npm run build` emits straight into apps/api/static (what FastAPI mounts).
-const API_PREFIXES = ["/auth", "/cameras", "/people", "/events", "/tenant", "/health", "/config"];
+const API_PREFIXES = ["/auth", "/cameras", "/people", "/events", "/tenant", "/health", "/config", "/worker", "/stream"];
 
 export default defineConfig({
   base: "/ui/",

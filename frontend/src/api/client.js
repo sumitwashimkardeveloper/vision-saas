@@ -1,6 +1,3 @@
-// Tiny API client. Requests use root-absolute paths ("/auth/login", ...) which
-// hit FastAPI directly in production and go through the Vite proxy in dev.
-
 let token = localStorage.getItem("vfr_token") || "";
 let onUnauthorized = () => {};
 
@@ -14,7 +11,7 @@ export function setUnauthorizedHandler(fn) {
   onUnauthorized = fn || (() => {});
 }
 
-async function errorText(res) {
+async function extractError(res) {
   try {
     const body = await res.json();
     return body.detail || res.statusText;
@@ -36,7 +33,7 @@ async function request(path, opts = {}) {
 
 export async function getJson(path) {
   const res = await request(path);
-  if (!res.ok) throw new Error(await errorText(res));
+  if (!res.ok) throw new Error(await extractError(res));
   return res.json();
 }
 
@@ -46,49 +43,54 @@ export async function postJson(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body ?? {}),
   });
-  if (!res.ok) throw new Error(await errorText(res));
+  if (!res.ok) throw new Error(await extractError(res));
   return res.json();
 }
 
-export async function postForm(path, formData) {
-  const res = await request(path, { method: "POST", body: formData });
-  if (!res.ok) throw new Error(await errorText(res));
+export async function patchJson(path, body) {
+  const res = await request(path, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
   return res.json();
 }
 
 export async function putForm(path, formData) {
   const res = await request(path, { method: "PUT", body: formData });
-  if (!res.ok) throw new Error(await errorText(res));
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
+export async function postForm(path, formData) {
+  const res = await request(path, { method: "POST", body: formData });
+  if (!res.ok) throw new Error(await extractError(res));
   return res.json();
 }
 
 export async function del(path) {
   const res = await request(path, { method: "DELETE" });
-  if (!res.ok) throw new Error(await errorText(res));
+  if (!res.ok) throw new Error(await extractError(res));
   return res.json();
 }
 
 export async function getBlob(path) {
   const res = await request(path);
-  if (!res.ok) throw new Error(await errorText(res));
+  if (!res.ok) throw new Error(await extractError(res));
   return res.blob();
 }
 
-// Pull a human-readable message out of an auth error response. FastAPI sends
-// `detail` as a string for our 400/401/409s, or an array for 422 validation.
 async function authError(res, fallback) {
   try {
     const body = await res.json();
     const d = body.detail;
     if (typeof d === "string") return d;
     if (Array.isArray(d) && d.length) return d[0].msg || fallback;
-  } catch {
-    /* non-JSON body */
-  }
+  } catch {}
   return fallback;
 }
 
-// Auth endpoints are unauthenticated, so they bypass the bearer-token wrapper.
 export async function login(username, password) {
   const res = await fetch("/auth/login", {
     method: "POST",

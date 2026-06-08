@@ -12,8 +12,11 @@ recognition:
   # ONNX Runtime providers, tried in order. Use CUDAExecutionProvider first on GPU hosts.
   providers:
     - CPUExecutionProvider
-  # YuNet detector input size (w, h). Larger = more accurate, slower.
+  # YuNet detector input size for Path A (recognition worker). Larger = more accurate, slower.
   det_size: [640, 640]
+  # YuNet detector input size for Path B (live stream preview). Smaller = faster, sufficient for preview.
+  # Fix 2: stream uses 320x320 to halve YuNet inference time vs the worker's 640x640.
+  stream_det_size: [320, 320]
   # YuNet detection confidence threshold (0..1).
   det_thresh: 0.6
   # YuNet non-max-suppression threshold.

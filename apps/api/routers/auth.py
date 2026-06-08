@@ -7,11 +7,12 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from apps.api.deps import get_config, get_db
-from apps.api.schemas import LoginRequest, RegisterRequest, TokenResponse
+from apps.api.deps import get_config, get_current_user, get_db
+from apps.api.schemas import ChangePasswordRequest, LoginRequest, MessageResult, RegisterRequest, TokenResponse
 from apps.api.security import create_access_token
 from apps.core.config import AppConfig
-from apps.core.models import Tenant
+from apps.core.models import Tenant, User
+from apps.core.security import hash_password, verify_password
 from apps.core.tenant_service import create_tenant
 from apps.core.user_service import (
     authenticate,
@@ -84,7 +85,7 @@ def register(
     create_tenant(config, db, tenant_id, tenant_name)
     user = create_user(db, tenant_id, username, password, role="admin")
     token = create_access_token(config.auth, user.id, user.tenant_id, user.role)
-    return TokenResponse(access_token=token, tenant_id=user.tenant_id, role=user.role)
+    return TokenResponse(access_token=token, tenant_id=user.tenant_id, role=user.role, username=user.username)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -101,4 +102,21 @@ def login(
         # Same response for unknown user / wrong tenant / bad password.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     token = create_access_token(config.auth, user.id, user.tenant_id, user.role)
-    return TokenResponse(access_token=token, tenant_id=user.tenant_id, role=user.role)
+    return TokenResponse(access_token=token, tenant_id=user.tenant_id, role=user.role, username=user.username)
+
+
+@router.patch("/me/password", response_model=MessageResult)
+def change_password(
+    body: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResult:
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password must be at least 8 characters")
+    if body.new_password != body.confirm_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match")
+    user.password_hash = hash_password(body.new_password)
+    db.add(user)
+    return MessageResult(message="Password updated successfully")
