@@ -21,3 +21,5 @@ class PersonOut(BaseModel):
 class GalleryRebuildResult(BaseModel):
     tenant_id: str
     people_enrolled: int
+    enrolled_names: list[str] = []   # display names successfully enrolled
+    failed_names: list[str] = []     # display names where no face was detected

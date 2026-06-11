@@ -13,7 +13,7 @@ from typing import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Camera, Event, Person, Tenant
+from .models import Camera, Event, Person, Tenant, TenantFeature
 
 
 class TenantRepository:
@@ -109,6 +109,7 @@ class TenantRepository:
         camera_id: int | None = None,
         person_id: int | None = None,
         snapshot_path: str | None = None,
+        event_type: str = "face_match",
     ) -> Event:
         event = Event(
             tenant_id=self.tenant_id,
@@ -117,10 +118,54 @@ class TenantRepository:
             label=label,
             score=score,
             snapshot_path=snapshot_path,
+            event_type=event_type,
         )
         self.session.add(event)
         self.session.flush()
         return event
+
+    # ---- Features (PPE toggles) -------------------------------------------
+
+    def list_features(self) -> list[TenantFeature]:
+        stmt = (
+            select(TenantFeature)
+            .where(TenantFeature.tenant_id == self.tenant_id)
+            .order_by(TenantFeature.feature_key)
+        )
+        return list(self.session.scalars(stmt).all())
+
+    def get_feature(self, feature_key: str) -> TenantFeature | None:
+        stmt = select(TenantFeature).where(
+            TenantFeature.tenant_id == self.tenant_id,
+            TenantFeature.feature_key == feature_key,
+        )
+        return self.session.scalars(stmt).first()
+
+    def ensure_features(self) -> None:
+        """Insert default (disabled) rows for any PPE features not yet in the DB."""
+        from .ppe_registry import PPE_FEATURE_KEYS
+
+        existing = {f.feature_key for f in self.list_features()}
+        for key in PPE_FEATURE_KEYS:
+            if key not in existing:
+                self.session.add(
+                    TenantFeature(tenant_id=self.tenant_id, feature_key=key, enabled=False)
+                )
+        self.session.flush()
+
+    def toggle_feature(self, feature_key: str) -> TenantFeature | None:
+        self.ensure_features()
+        feat = self.get_feature(feature_key)
+        if feat is None:
+            return None
+        feat.enabled = not feat.enabled
+        self.session.add(feat)
+        self.session.flush()
+        return feat
+
+    def get_enabled_feature_keys(self) -> set[str]:
+        self.ensure_features()
+        return {f.feature_key for f in self.list_features() if f.enabled}
 
     def list_events(self, limit: int = 100) -> Sequence[Event]:
         stmt = (

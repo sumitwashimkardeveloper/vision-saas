@@ -1,38 +1,44 @@
 import { useState } from "react";
 import Modal from "../../../components/ui/Modal.jsx";
-import { addCamera } from "../../../api/cameras.js";
+import { addCamera, updateCamera } from "../../../api/cameras.js";
 
 const HINT = "rtsp://username:password@192.168.1.245:554/cam/realmonitor?channel=1&subtype=0";
 
-export default function AddByRTSPModal({ onClose, onAdded }) {
-  const [name, setName] = useState("");
-  const [url, setUrl]   = useState("");
-  const [err, setErr]   = useState("");
+export default function AddByRTSPModal({ onClose, onAdded, camera = null }) {
+  const editing = camera !== null;
+
+  const [name, setName] = useState(editing ? camera.name : "");
+  const [url,  setUrl]  = useState(editing ? camera.rtsp_url : "");
+  const [err,  setErr]  = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
-    if (!name.trim())              { setErr("Camera name is required."); return; }
-    if (!url.startsWith("rtsp://")){ setErr("URL must start with rtsp://"); return; }
+    if (!name.trim())               { setErr("Camera name is required."); return; }
+    if (!url.startsWith("rtsp://")) { setErr("URL must start with rtsp://"); return; }
     setErr("");
     setBusy(true);
     try {
-      await addCamera(name.trim(), url.trim());
+      if (editing) {
+        await updateCamera(camera.id, { name: name.trim(), rtsp_url: url.trim() });
+      } else {
+        await addCamera(name.trim(), url.trim());
+      }
       onAdded();
       onClose();
     } catch (ex) {
-      setErr(ex.message || "Failed to add camera.");
+      setErr(ex.message || "Failed to save camera.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Modal title="Add Camera by RTSP URL" onClose={onClose}>
+    <Modal title={editing ? "Edit Camera (RTSP URL)" : "Add Camera by RTSP URL"} onClose={onClose}>
       <form className="modal-body" onSubmit={submit}>
         <div className="modal-field">
           <label>Camera Name</label>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Parking Lot" />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Parking Lot" autoFocus />
         </div>
         <div className="modal-field">
           <label>RTSP URL</label>
@@ -46,7 +52,7 @@ export default function AddByRTSPModal({ onClose, onAdded }) {
         </div>
         {err && <div className="err">{err}</div>}
         <div className="modal-actions">
-          <button type="submit" disabled={busy}>{busy ? "Adding…" : "Add Camera"}</button>
+          <button type="submit" disabled={busy}>{busy ? "Saving…" : editing ? "Save Changes" : "Add Camera"}</button>
           <button type="button" className="ghost" onClick={onClose}>Cancel</button>
         </div>
       </form>

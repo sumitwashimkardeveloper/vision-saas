@@ -32,6 +32,7 @@ from apps.core.db import get_session_factory
 from apps.core.detector import FaceDetector
 from apps.core.frame_buffer import get_buffer   # Fix 4: shared FrameBuffer from core
 from apps.core.gallery import load_gallery
+from apps.core.ppe_detector import PPEDetection, PPEDetector
 from apps.core.recognizer import match
 from apps.core.repository import TenantRepository
 
@@ -67,26 +68,48 @@ def _get_gallery(config: AppConfig, tenant_id: str):
 # DetectionThread — ONNX inference off the streaming thread (Fix 3)
 # ---------------------------------------------------------------------------
 
+# BGR colors per PPE feature key for the live overlay boxes
+_PPE_COLORS: dict[str, tuple[int, int, int]] = {
+    "helmet":          ( 30, 180, 255),   # amber/orange
+    "safety_vest":     (  0, 165, 255),   # orange
+    "face_mask":       (255, 220,   0),   # cyan
+    "gloves":          (255,   0, 200),   # magenta
+    "safety_goggles":  (  0, 220, 220),   # yellow
+    "safety_shoes":    ( 80, 255,  80),   # light green
+    "full_body_suit":  (200,  80, 255),   # purple
+}
+_PPE_DEFAULT_COLOR = (0, 200, 255)   # fallback amber
+
+
 class DetectionThread:
-    """Runs face detection in a dedicated daemon thread.
+    """Runs face + optional PPE detection in a dedicated daemon thread.
 
     The streaming thread submits frames via submit(); this thread processes
     them as fast as inference allows, always consuming the latest submitted
     frame (stale frames are dropped automatically). Results are read
-    non-blocking via results() — the streaming thread never waits on this.
+    non-blocking via results() / ppe_results() — the streaming thread never
+    waits on this.
 
     Uses det_size=(320,320) (Fix 2) to halve YuNet cost vs the worker's
     640×640 — acceptable for preview quality at STREAM_WIDTH resolution.
     """
 
-    def __init__(self, config: AppConfig) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        ppe_detector: PPEDetector | None = None,
+        enabled_ppe_keys: set[str] | None = None,
+    ) -> None:
         # Fix 2: override det_size to 320×320 for the stream preview detector.
         stream_rec_cfg = dataclasses.replace(config.recognition, det_size=(320, 320))
         self._detector = FaceDetector(stream_rec_cfg)
+        self._ppe_detector = ppe_detector
+        self._enabled_ppe_keys: set[str] = enabled_ppe_keys or set()
         self._pending: np.ndarray | None = None
         self._pending_lock = threading.Lock()
         self._faces: list = []
-        self._faces_lock = threading.Lock()
+        self._ppe_hits: list[PPEDetection] = []
+        self._results_lock = threading.Lock()
         self._trigger = threading.Event()
         self._alive = True
         t = threading.Thread(target=self._loop, daemon=True, name="stream-detect")
@@ -104,8 +127,15 @@ class DetectionThread:
                 faces = self._detector.detect(frame)
             except Exception:
                 faces = []
-            with self._faces_lock:
+            ppe_hits: list[PPEDetection] = []
+            if self._ppe_detector and self._enabled_ppe_keys:
+                try:
+                    ppe_hits = self._ppe_detector.detect(frame, self._enabled_ppe_keys)
+                except Exception:
+                    pass
+            with self._results_lock:
                 self._faces = faces
+                self._ppe_hits = ppe_hits
 
     def submit(self, frame: np.ndarray) -> None:
         """Feed the latest frame; replaces any unprocessed pending frame."""
@@ -114,9 +144,14 @@ class DetectionThread:
         self._trigger.set()
 
     def results(self) -> list:
-        """Return the most recent detection results (never blocks)."""
-        with self._faces_lock:
+        """Return the most recent face detection results (never blocks)."""
+        with self._results_lock:
             return list(self._faces)
+
+    def ppe_results(self) -> list[PPEDetection]:
+        """Return the most recent PPE detection results (never blocks)."""
+        with self._results_lock:
+            return list(self._ppe_hits)
 
     def stop(self) -> None:
         self._alive = False
@@ -148,15 +183,46 @@ def _draw(frame: np.ndarray, faces, gallery, threshold: float) -> None:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.52, (255, 255, 255), 1, cv2.LINE_AA)
 
 
+def _draw_ppe(frame: np.ndarray, ppe_hits: list[PPEDetection]) -> None:
+    for det in ppe_hits:
+        x1, y1, x2, y2 = (int(v) for v in det.bbox)
+        color = _PPE_COLORS.get(det.feature_key, _PPE_DEFAULT_COLOR)
+        label = f"{det.label}  {det.confidence:.2f}"
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.50, 1)
+        cv2.rectangle(frame, (x1, y2), (x1 + tw + 6, y2 + th + 8), color, cv2.FILLED)
+        cv2.putText(frame, label, (x1 + 3, y2 + th + 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.50, (0, 0, 0), 1, cv2.LINE_AA)
+
+
 # ---------------------------------------------------------------------------
 # MJPEG generator
 # ---------------------------------------------------------------------------
 
-def _mjpeg_gen(rtsp_url: str, config: AppConfig, tenant_id: str):
+def _mjpeg_gen(
+    rtsp_url: str,
+    config: AppConfig,
+    tenant_id: str,
+    enabled_ppe_keys: set[str] | None = None,
+):
     buf = get_buffer(rtsp_url)              # Fix 4: shared FrameBuffer from core
     gallery = _get_gallery(config, tenant_id)
     threshold = config.recognition.match_threshold
-    detect = DetectionThread(config)        # Fix 2+10: 320×320, isolated ONNX session
+
+    # Build PPE detector for this stream if the model is configured and at
+    # least one feature is enabled for this tenant.
+    ppe_detector: PPEDetector | None = None
+    active_ppe_keys: set[str] = enabled_ppe_keys or set()
+    if config.ppe.is_configured and active_ppe_keys:
+        ppe_detector = PPEDetector(
+            model_path=config.ppe.model_path,
+            class_names=config.ppe.class_names,
+            providers=list(config.recognition.providers),
+            conf_thresh=config.ppe.conf_thresh,
+            nms_thresh=config.ppe.nms_thresh,
+        )
+
+    detect = DetectionThread(config, ppe_detector, active_ppe_keys)  # Fix 2+10: 320×320
 
     frame_gap = 1.0 / STREAM_FPS
     next_frame_t = time.time()
@@ -194,6 +260,8 @@ def _mjpeg_gen(rtsp_url: str, config: AppConfig, tenant_id: str):
             # Draw last known results — always, even on non-detection frames.
             try:
                 _draw(frame, detect.results(), gallery, threshold)
+                if ppe_detector:
+                    _draw_ppe(frame, detect.ppe_results())
             except Exception:
                 pass
 
@@ -231,6 +299,9 @@ def stream_camera(
     try:
         repo = TenantRepository(session, tenant_id)
         cam = next((c for c in repo.list_cameras() if c.id == camera_id), None)
+        enabled_ppe_keys = (
+            repo.get_enabled_feature_keys() if config.ppe.is_configured else set()
+        )
     finally:
         session.close()
 
@@ -238,6 +309,6 @@ def stream_camera(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera not found")
 
     return StreamingResponse(
-        _mjpeg_gen(cam.rtsp_url, config, tenant_id),
+        _mjpeg_gen(cam.rtsp_url, config, tenant_id, enabled_ppe_keys),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )

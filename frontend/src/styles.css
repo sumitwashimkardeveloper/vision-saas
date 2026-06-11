@@ -720,6 +720,92 @@ th {
   animation: pulse-dot 1s ease-in-out infinite;
 }
 
+/* ---- PPE Features page ---- */
+
+.ppe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.ppe-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s;
+}
+
+.ppe-card.enabled {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.ppe-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ppe-emoji {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.ppe-card-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+
+.ppe-card-desc {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+}
+
+/* Toggle switch */
+.ppe-toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: var(--line);
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.ppe-toggle.on {
+  background: #22c55e;
+}
+
+.ppe-toggle:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ppe-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  pointer-events: none;
+}
+
+.ppe-toggle.on .ppe-toggle-thumb {
+  transform: translateX(18px);
+}
+
 /* ---- Coming soon placeholder ---- */
 .coming-soon {
   display: flex;

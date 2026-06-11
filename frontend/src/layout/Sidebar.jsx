@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { IconCamera, IconPeople, IconSettings, IconLogout, IconChevron } from "./icons.jsx";
+import { IconCamera, IconPeople, IconSettings, IconShield, IconLogout, IconChevron } from "./icons.jsx";
 
 function IconHome({ size = 16 }) {
   return (
@@ -77,6 +77,15 @@ export default function Sidebar({ page, setPage, user, onLogout }) {
         >
           <IconPeople size={16} />
           People
+        </button>
+
+        {/* Features (PPE Detection) */}
+        <button
+          className={"sidebar-item" + (page === "features" ? " active" : "")}
+          onClick={() => setPage("features")}
+        >
+          <IconShield size={16} />
+          Features
         </button>
 
         {/* Settings */}

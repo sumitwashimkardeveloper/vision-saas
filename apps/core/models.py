@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -36,6 +37,7 @@ class Tenant(Base):
     people: Mapped[list["Person"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     events: Mapped[list["Event"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     users: Mapped[list["User"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+    features: Mapped[list["TenantFeature"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -103,5 +105,22 @@ class Event(Base):
     snapshot_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
 
+    event_type: Mapped[str] = mapped_column(String(32), default="face_match")
+
     tenant: Mapped[Tenant] = relationship(back_populates="events")
     person: Mapped[Person | None] = relationship(back_populates="events")
+
+
+class TenantFeature(Base):
+    """Per-tenant toggle for each PPE detection feature."""
+
+    __tablename__ = "tenant_features"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    feature_key: Mapped[str] = mapped_column(String(64))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    tenant: Mapped[Tenant] = relationship(back_populates="features")
+
+    __table_args__ = (UniqueConstraint("tenant_id", "feature_key", name="uq_feature_tenant_key"),)

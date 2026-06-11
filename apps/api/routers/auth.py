@@ -33,24 +33,31 @@ def _bad_request(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
-def _validate_registration(body: RegisterRequest) -> tuple[str, str, str, str]:
-    """Validate + normalize the signup payload. Returns the cleaned fields.
+def _slugify(s: str) -> str:
+    """Convert a string to a filesystem/URL-safe slug."""
+    slug = re.sub(r"[^a-z0-9_-]", "_", s.lower().strip())
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    return slug[:64] or "user"
 
-    These checks are the authoritative ones; the frontend mirrors them only for
-    instant feedback. Raises 400 with a plain message on the first problem."""
-    tenant_name = (body.tenant_name or "").strip()
-    tenant_id = (body.tenant_id or "").strip()
+
+def _unique_tenant_id(base: str, db: Session) -> str:
+    """Return *base* if that tenant_id is free, otherwise *base_2*, *base_3* …"""
+    if db.get(Tenant, base) is None:
+        return base
+    i = 2
+    while db.get(Tenant, f"{base}_{i}") is not None:
+        i += 1
+    return f"{base}_{i}"
+
+
+def _validate_registration(body: RegisterRequest) -> tuple[str, str]:
+    """Validate the minimal signup fields. Returns (username, password).
+
+    tenant_id is auto-generated from username — callers must not rely on
+    body.tenant_id being set."""
     username = (body.username or "").strip()
     password = body.password or ""
 
-    if not tenant_name:
-        raise _bad_request("Organization name is required")
-    if not tenant_id:
-        raise _bad_request("Tenant ID is required")
-    if not _SLUG.match(tenant_id):
-        raise _bad_request("Tenant ID may only contain letters, numbers, '-' and '_'")
-    if len(tenant_id) > 64:
-        raise _bad_request("Tenant ID is too long (max 64 characters)")
     if not username:
         raise _bad_request("Username is required")
     if len(username) < _MIN_USERNAME:
@@ -64,7 +71,7 @@ def _validate_registration(body: RegisterRequest) -> tuple[str, str, str, str]:
     if not body.accept_terms:
         raise _bad_request("You must accept the Terms & Privacy Policy")
 
-    return tenant_name, tenant_id, username, password
+    return username, password
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -73,17 +80,17 @@ def register(
     db: Session = Depends(get_db),
     config: AppConfig = Depends(get_config),
 ) -> TokenResponse:
-    tenant_name, tenant_id, username, password = _validate_registration(body)
+    username, password = _validate_registration(body)
 
-    if db.get(Tenant, tenant_id) is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That Tenant ID is already taken")
     if username_taken(db, username):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That username is already taken")
 
-    # Create the tenant and its first admin in one transaction (get_db commits on
-    # success and rolls back if anything below raises).
+    # Auto-generate a unique tenant_id from the username (no user input needed).
+    tenant_id   = _unique_tenant_id(_slugify(username), db)
+    tenant_name = (body.tenant_name or "").strip() or username
+
     create_tenant(config, db, tenant_id, tenant_name)
-    user = create_user(db, tenant_id, username, password, role="admin")
+    user  = create_user(db, tenant_id, username, password, role="admin")
     token = create_access_token(config.auth, user.id, user.tenant_id, user.role)
     return TokenResponse(access_token=token, tenant_id=user.tenant_id, role=user.role, username=user.username)
 

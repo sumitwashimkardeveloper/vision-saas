@@ -1,6 +1,7 @@
-import { getJson, postJson, del } from "./client.js";
+import { getJson, postJson, patchJson, del } from "./client.js";
 
-export const getCameras = ()                     => getJson("/cameras");
-export const addCamera  = (name, rtsp_url)       => postJson("/cameras", { name, rtsp_url, enabled: true });
-export const updateCamera = (name, rtsp_url, enabled) => postJson("/cameras", { name, rtsp_url, enabled });
-export const deleteCamera = (id)                 => del("/cameras/" + id);
+export const getCameras   = ()                          => getJson("/cameras");
+export const addCamera    = (name, rtsp_url)            => postJson("/cameras", { name, rtsp_url, enabled: true });
+export const updateCamera = (id, fields)                => patchJson(`/cameras/${id}`, fields);
+export const toggleCamera = (id)                        => patchJson(`/cameras/${id}/toggle`);
+export const deleteCamera = (id)                        => del("/cameras/" + id);

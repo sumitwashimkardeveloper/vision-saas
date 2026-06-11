@@ -59,7 +59,11 @@ def ensure_schema(config: AppConfig) -> None:
 
     engine = get_engine(config)
     inspector = inspect(engine)
-    if inspector.has_table("tenants") and inspector.has_table("users"):
+    if (
+        inspector.has_table("tenants")
+        and inspector.has_table("users")
+        and inspector.has_table("tenant_features")
+    ):
         return
 
     from .config import PROJECT_ROOT  # local import avoids any import cycle
@@ -79,6 +83,12 @@ def ensure_schema(config: AppConfig) -> None:
         from .models import Base
 
         Base.metadata.create_all(engine)
+
+    # Additive safety net: create any tables added after the initial migration
+    # (e.g. tenant_features) without touching existing data.
+    from .models import Base as _Base
+
+    _Base.metadata.create_all(engine)
 
 
 @contextmanager

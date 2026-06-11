@@ -1,31 +1,29 @@
-# Core recognition (no compiler required)
-#   Detection : OpenCV YuNet (bundled with opencv-python)
-#   Embeddings: ArcFace w600k_r50 ONNX, run via onnxruntime
-onnxruntime==1.19.2          # swap for onnxruntime-gpu on production GPU hosts
-opencv-python>=4.9           # provides cv2.FaceDetectorYN for YuNet detection
+# ── Core vision ──────────────────────────────────────────────────────────────
+# Face detection  : OpenCV YuNet (bundled with opencv-python)
+# Face embeddings : ArcFace w600k_r50 ONNX via onnxruntime
+# PPE detection   : YOLOv8 ONNX via onnxruntime (model downloaded separately)
+onnxruntime>=1.18,<2.0       # swap for onnxruntime-gpu on GPU hosts
+opencv-python>=4.9            # cv2.FaceDetectorYN (YuNet) + image I/O
 numpy>=1.26,<2.3
 
-# Data layer
+# ── Data layer ────────────────────────────────────────────────────────────────
 SQLAlchemy>=2.0
 alembic>=1.13
 
-# Config / downloads
+# ── Config ────────────────────────────────────────────────────────────────────
 PyYAML>=6.0
 
-# API + auth (Phase 3)
+# ── API + auth ────────────────────────────────────────────────────────────────
 fastapi>=0.110
 uvicorn>=0.29
 PyJWT>=2.8
 bcrypt>=4.1
-python-multipart>=0.0.9   # required by FastAPI for file uploads (enrollment images)
+python-multipart>=0.0.9       # FastAPI file uploads (enrollment images)
 
-# Tests (dev)
+# ── Model downloads (one-time only, not needed at runtime) ───────────────────
+# pip install ultralytics    — to train / export a YOLOv8 PPE model to ONNX
+# pip install huggingface-hub — if fetching weights from HuggingFace
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
 pytest>=8.0
-httpx>=0.27               # required by FastAPI's TestClient
-
-# NOTE: The full `insightface` package is intentionally NOT a dependency.
-# On Windows it requires the MSVC C++ Build Tools to compile a Cython extension
-# we don't use. We run the same ArcFace model directly through onnxruntime
-# instead. On a Linux GPU server you may still `pip install insightface` if you
-# prefer its all-in-one pipeline -- the gallery format is compatible. See
-# docs/decisions.md ADR-001.
+httpx>=0.27                   # FastAPI TestClient

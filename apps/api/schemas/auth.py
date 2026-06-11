@@ -9,12 +9,13 @@ class LoginRequest(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    tenant_name: str
-    tenant_id: str
     username: str
     password: str
     confirm_password: str
     accept_terms: bool = False
+    # Legacy / optional — auto-generated from username when absent
+    tenant_name: str | None = None
+    tenant_id: str | None = None
 
 
 class TokenResponse(BaseModel):

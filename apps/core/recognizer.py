@@ -1,23 +1,32 @@
 """Cosine-similarity matching of a probe embedding against a tenant gallery.
 
-The gallery holds one mean embedding per enrolled person. Because all
-embeddings are L2-normalized, cosine similarity is just a dot product, so a
-whole gallery match is a single matrix-vector multiply.
+Multi-vector gallery: each enrolled image gets its own row. During matching
+the probe is compared against every row; the best (max) score per person is
+used to determine identity. This means a right-angle face in the camera
+matches the right-angle enrollment image — not a blended mean that loses
+angle-specific detail.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
 
 @dataclass
 class Gallery:
-    """In-memory gallery for one tenant."""
-    keys: list[str]            # person external_key per row
-    names: list[str]           # display name per row
-    embeddings: np.ndarray     # shape (N, 512), L2-normalized
+    """In-memory gallery for one tenant.
+
+    embeddings     : (M, 512) — one row per enrolled image (M >= N)
+    person_indices : (M,)     — maps each row back to a person index in keys/names
+    keys           : [P]      — unique external_key per person
+    names          : [P]      — display name per person
+    """
+    keys: list[str]
+    names: list[str]
+    embeddings: np.ndarray          # shape (M, 512)
+    person_indices: np.ndarray      # shape (M,) int32
 
     @property
     def size(self) -> int:
@@ -36,7 +45,14 @@ class MatchResult:
 
 
 def match(gallery: Gallery, probe: np.ndarray, threshold: float) -> MatchResult:
-    """Match a single probe embedding against the gallery."""
+    """Match a probe embedding against the gallery using per-person max scoring.
+
+    Steps:
+      1. Normalise the probe.
+      2. Dot-product with all M gallery rows → similarity vector (M,).
+      3. For each person P, take max(sims[person_indices == P]).
+      4. Best person wins; apply threshold.
+    """
     if gallery.is_empty():
         return MatchResult(False, None, "unknown", 0.0)
 
@@ -45,10 +61,22 @@ def match(gallery: Gallery, probe: np.ndarray, threshold: float) -> MatchResult:
     if norm > 0:
         probe = probe / norm
 
-    sims = gallery.embeddings @ probe          # (N,)
-    best = int(np.argmax(sims))
-    score = float(sims[best])
+    # (M,) similarities — one per enrolled image
+    sims = gallery.embeddings @ probe
 
-    if score >= threshold:
-        return MatchResult(True, gallery.keys[best], gallery.names[best], score)
-    return MatchResult(False, None, "unknown", score)
+    n_people = len(gallery.keys)
+    best_score = -1.0
+    best_idx   = 0
+
+    for i in range(n_people):
+        mask = gallery.person_indices == i
+        if not mask.any():
+            continue
+        score = float(np.max(sims[mask]))
+        if score > best_score:
+            best_score = score
+            best_idx   = i
+
+    if best_score >= threshold:
+        return MatchResult(True, gallery.keys[best_idx], gallery.names[best_idx], best_score)
+    return MatchResult(False, None, "unknown", best_score)

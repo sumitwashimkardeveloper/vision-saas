@@ -1,19 +1,19 @@
-"""Per-tenant gallery: build embeddings from enrolled images and cache them.
+"""Per-tenant gallery: build per-image embeddings from enrolled images.
 
-On-disk layout (see docs/plan.md):
-    data/tenants/<tenant>/people/<external_key>/*.jpg   # enrollment images
-    data/tenants/<tenant>/people.json                   # optional metadata
-    data/tenants/<tenant>/embeddings/gallery.npz        # cached embeddings
+Each enrolled image produces one row in the gallery (instead of a mean).
+This preserves angle-specific detail so right/left profile shots match
+correctly during live recognition.
 
-``people.json`` (optional) maps external_key -> metadata:
-    {"alice": {"name": "Alice Smith", "role": "staff", "details": "..."}, ...}
-If absent, the folder name is used as both key and display name.
+On-disk layout:
+    data/tenants/<tenant>/people/<external_key>/*.jpg
+    data/tenants/<tenant>/embeddings/gallery.npz
 """
 
 from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
@@ -28,6 +28,13 @@ logger = logging.getLogger(__name__)
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 
+@dataclass
+class GalleryBuildResult:
+    gallery: Gallery
+    enrolled: list[str] = field(default_factory=list)   # display names enrolled OK
+    failed: list[str]   = field(default_factory=list)   # display names with no detectable face
+
+
 def _load_people_meta(tenant_dir: Path) -> dict[str, dict]:
     meta_path = tenant_dir / "people.json"
     if not meta_path.exists():
@@ -39,26 +46,36 @@ def _load_people_meta(tenant_dir: Path) -> dict[str, dict]:
         return {}
 
 
-def build_gallery(config: AppConfig, tenant_id: str, detector: FaceDetector) -> Gallery:
-    """Scan a tenant's people folders, compute a mean embedding per person,
-    and write the gallery cache. Returns the in-memory gallery."""
+def build_gallery(config: AppConfig, tenant_id: str, detector: FaceDetector) -> GalleryBuildResult:
+    """Scan enrolled images and store one embedding per image.
+
+    Returns a GalleryBuildResult with the gallery and lists of enrolled/failed names
+    so callers can report failures to the user.
+    """
     config.ensure_tenant_dirs(tenant_id)
     people_dir = config.people_dir(tenant_id)
     meta = _load_people_meta(config.tenant_dir(tenant_id))
 
-    keys: list[str] = []
-    names: list[str] = []
-    vectors: list[np.ndarray] = []
+    keys: list[str]            = []
+    names: list[str]           = []
+    all_embs: list[np.ndarray] = []
+    person_idx: list[int]      = []
+    enrolled_names: list[str]  = []
+    failed_names: list[str]    = []
 
     person_dirs = sorted(p for p in people_dir.iterdir() if p.is_dir()) if people_dir.exists() else []
+
     for person_dir in person_dirs:
-        key = person_dir.name
+        key    = person_dir.name
         images = sorted(p for p in person_dir.iterdir() if p.suffix.lower() in _IMAGE_EXTS)
+        display_name = meta.get(key, {}).get("name", key)
+
         if not images:
-            logger.warning("[%s] no images for person '%s' — skipping", tenant_id, key)
+            logger.warning("[%s] no images for '%s' — skipping", tenant_id, key)
+            failed_names.append(display_name)
             continue
 
-        embeddings: list[np.ndarray] = []
+        person_embs: list[np.ndarray] = []
         for img_path in images:
             image = cv2.imread(str(img_path))
             if image is None:
@@ -66,32 +83,49 @@ def build_gallery(config: AppConfig, tenant_id: str, detector: FaceDetector) -> 
                 continue
             emb = detector.embed_largest(image)
             if emb is None:
-                logger.warning("[%s] no face found in %s — skipping", tenant_id, img_path)
+                logger.warning("[%s] no face detected in %s", tenant_id, img_path.name)
                 continue
-            embeddings.append(emb)
+            norm = np.linalg.norm(emb)
+            if norm > 0:
+                emb = emb / norm
+            person_embs.append(emb.astype(np.float32))
 
-        if not embeddings:
-            logger.warning("[%s] no usable faces for '%s' — skipping", tenant_id, key)
+        if not person_embs:
+            logger.warning("[%s] no usable faces for '%s' — person NOT enrolled", tenant_id, key)
+            failed_names.append(display_name)
             continue
 
-        # Mean of L2-normalized embeddings, renormalized.
-        mean = np.mean(np.stack(embeddings), axis=0)
-        norm = np.linalg.norm(mean)
-        if norm > 0:
-            mean = mean / norm
-
-        display_name = meta.get(key, {}).get("name", key)
+        p_idx = len(keys)
         keys.append(key)
         names.append(display_name)
-        vectors.append(mean.astype(np.float32))
-        logger.info("[%s] enrolled '%s' (%s) from %d image(s)", tenant_id, key, display_name, len(embeddings))
+        for emb in person_embs:
+            all_embs.append(emb)
+            person_idx.append(p_idx)
+
+        enrolled_names.append(display_name)
+        logger.info(
+            "[%s] enrolled '%s' — %d embedding(s) from %d image(s)",
+            tenant_id, display_name, len(person_embs), len(images),
+        )
 
     embeddings_arr = (
-        np.stack(vectors) if vectors else np.zeros((0, 512), dtype=np.float32)
+        np.stack(all_embs).astype(np.float32)
+        if all_embs
+        else np.zeros((0, 512), dtype=np.float32)
     )
-    gallery = Gallery(keys=keys, names=names, embeddings=embeddings_arr)
+    gallery = Gallery(
+        keys=keys,
+        names=names,
+        embeddings=embeddings_arr,
+        person_indices=np.array(person_idx, dtype=np.int32),
+    )
     save_gallery(config, tenant_id, gallery)
-    return gallery
+
+    if failed_names:
+        logger.warning("[%s] %d person(s) NOT enrolled (no detectable face): %s",
+                       tenant_id, len(failed_names), failed_names)
+
+    return GalleryBuildResult(gallery=gallery, enrolled=enrolled_names, failed=failed_names)
 
 
 def save_gallery(config: AppConfig, tenant_id: str, gallery: Gallery) -> Path:
@@ -102,19 +136,34 @@ def save_gallery(config: AppConfig, tenant_id: str, gallery: Gallery) -> Path:
         keys=np.array(gallery.keys, dtype=object),
         names=np.array(gallery.names, dtype=object),
         embeddings=gallery.embeddings,
+        person_indices=gallery.person_indices,
     )
-    logger.info("[%s] wrote gallery cache (%d people) -> %s", tenant_id, gallery.size, path)
+    logger.info(
+        "[%s] gallery saved — %d people, %d embeddings -> %s",
+        tenant_id, gallery.size, len(gallery.embeddings), path,
+    )
     return path
 
 
 def load_gallery(config: AppConfig, tenant_id: str) -> Gallery:
-    """Load the cached gallery; returns an empty gallery if none exists yet."""
+    """Load cached gallery. Handles old format (no person_indices) gracefully."""
     path = config.gallery_path(tenant_id)
     if not path.exists():
-        return Gallery(keys=[], names=[], embeddings=np.zeros((0, 512), dtype=np.float32))
+        return Gallery(
+            keys=[], names=[],
+            embeddings=np.zeros((0, 512), dtype=np.float32),
+            person_indices=np.array([], dtype=np.int32),
+        )
     data = np.load(path, allow_pickle=True)
+    embeddings = data["embeddings"].astype(np.float32)
+    if "person_indices" in data:
+        person_indices = data["person_indices"].astype(np.int32)
+    else:
+        person_indices = np.arange(len(embeddings), dtype=np.int32)
+
     return Gallery(
         keys=list(data["keys"]),
         names=list(data["names"]),
-        embeddings=data["embeddings"].astype(np.float32),
+        embeddings=embeddings,
+        person_indices=person_indices,
     )

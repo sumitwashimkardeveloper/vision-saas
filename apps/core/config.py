@@ -84,6 +84,27 @@ class WorkerConfig:
 
 
 @dataclass(frozen=True)
+class PPEConfig:
+    # Path to the YOLOv8 ONNX model trained on PPE classes.
+    # Fetch with: python -m scripts.download_models --ppe
+    model: str = "models/ppe_yolov8.onnx"
+    # YOLO class names in the same order as the model's output head.
+    # Must be set to match your specific model — see scripts/download_models.py.
+    class_names: list[str] = field(default_factory=list)
+    conf_thresh: float = 0.45
+    nms_thresh: float = 0.45
+
+    @property
+    def model_path(self) -> Path:
+        return _resolve(self.model)
+
+    @property
+    def is_configured(self) -> bool:
+        """True when the model file exists and class_names are set."""
+        return bool(self.class_names) and self.model_path.exists()
+
+
+@dataclass(frozen=True)
 class AppConfig:
     data_dir: Path
     db_file: str
@@ -91,6 +112,7 @@ class AppConfig:
     stream: StreamConfig
     auth: AuthConfig
     worker: WorkerConfig = field(default_factory=WorkerConfig)
+    ppe: PPEConfig = field(default_factory=PPEConfig)
 
     # ---- Derived paths ----------------------------------------------------
     @property
@@ -143,6 +165,7 @@ def load_config(path: Path | str | None = None) -> AppConfig:
     stream = raw.get("stream", {})
     auth = raw.get("auth", {})
     worker = raw.get("worker", {})
+    ppe_raw = raw.get("ppe", {})
 
     recognition = RecognitionConfig(
         detector_model=rec.get("detector_model", RecognitionConfig.detector_model),
@@ -192,6 +215,13 @@ def load_config(path: Path | str | None = None) -> AppConfig:
         restart_backoff_sec=float(worker.get("restart_backoff_sec", WorkerConfig.restart_backoff_sec)),
     )
 
+    ppe_cfg = PPEConfig(
+        model=ppe_raw.get("model", PPEConfig.model),
+        class_names=list(ppe_raw.get("class_names", [])),
+        conf_thresh=float(ppe_raw.get("conf_thresh", PPEConfig.conf_thresh)),
+        nms_thresh=float(ppe_raw.get("nms_thresh", PPEConfig.nms_thresh)),
+    )
+
     data_dir = _resolve(storage.get("data_dir", "data"))
     data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -202,4 +232,5 @@ def load_config(path: Path | str | None = None) -> AppConfig:
         stream=stream_cfg,
         auth=auth_cfg,
         worker=worker_cfg,
+        ppe=ppe_cfg,
     )

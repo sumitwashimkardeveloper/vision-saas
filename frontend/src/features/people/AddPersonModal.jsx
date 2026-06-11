@@ -65,12 +65,17 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
       streamRef.current = s;
-      if (videoRef.current) videoRef.current.srcObject = s;
       setCameraOn(true);
     } catch (ex) {
       setErr("Camera access denied: " + ex.message);
     }
   }
+
+  useEffect(() => {
+    if (cameraOn && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [cameraOn]);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach(t => t.stop());
@@ -139,8 +144,8 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
       }
 
       setStep("Enrolling for recognition…");
-      await postJson("/people/gallery/rebuild");
-      onAdded();
+      const rebuildResult = await postJson("/people/gallery/rebuild");
+      onAdded(rebuildResult);
       onClose();
     } catch (ex) {
       setErr(ex.message || "Failed to add person");

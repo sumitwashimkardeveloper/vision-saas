@@ -144,9 +144,14 @@ def rebuild_gallery(
 ):
     """Recompute the tenant's embeddings cache from enrolled images.
 
-    Note: this loads the ArcFace model in the API process and runs synchronously,
-    which is fine for a local admin tool but blocks the request while it runs.
+    Returns enrolled_names (success) and failed_names (no face detected) so
+    the UI can warn the operator when a person's photos are unusable.
     """
     detector = FaceDetector(config.recognition)
-    gallery = build_gallery(config, user.tenant_id, detector)
-    return GalleryRebuildResult(tenant_id=user.tenant_id, people_enrolled=gallery.size)
+    result = build_gallery(config, user.tenant_id, detector)
+    return GalleryRebuildResult(
+        tenant_id=user.tenant_id,
+        people_enrolled=result.gallery.size,
+        enrolled_names=result.enrolled,
+        failed_names=result.failed,
+    )

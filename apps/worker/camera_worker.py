@@ -26,6 +26,7 @@ from apps.core.db import session_scope
 from apps.core.detector import FaceDetector
 from apps.core.frame_buffer import get_buffer   # Fix 4: shared FrameBuffer
 from apps.core.pipeline import MatchEvent, persist_event, save_snapshot
+from apps.core.ppe_detector import PPEDetector
 from apps.core.recognizer import Gallery, match
 
 logger = logging.getLogger("camera_worker")
@@ -42,6 +43,8 @@ class CameraWorker(threading.Thread):
         gallery: Gallery,
         detector: FaceDetector | None = None,
         event_sink: Callable[[MatchEvent], None] | None = None,
+        ppe_detector: PPEDetector | None = None,
+        enabled_ppe_keys: set[str] | None = None,
     ):
         super().__init__(name=f"{tenant_id}:{camera_name}", daemon=True)
         self.config = config
@@ -51,6 +54,8 @@ class CameraWorker(threading.Thread):
         self.camera_name = camera_name
         self.gallery = gallery
         self.event_sink = event_sink
+        self.ppe_detector = ppe_detector
+        self.enabled_ppe_keys: set[str] = enabled_ppe_keys or set()
         # One detector per worker: FaceDetectorYN is stateful (input size),
         # sharing across threads would race.
         self.detector = detector or FaceDetector(config.recognition)
@@ -131,6 +136,33 @@ class CameraWorker(threading.Thread):
                     else:
                         with session_scope(self.config) as session:
                             persist_event(session, event)
+
+                # PPE detection — runs only when a model is configured and at
+                # least one feature is enabled for this tenant.
+                if self.ppe_detector and self.enabled_ppe_keys:
+                    try:
+                        for det in self.ppe_detector.detect(frame, self.enabled_ppe_keys):
+                            snapshot_path = save_snapshot(
+                                self.config, self.tenant_id, frame, f"ppe_{det.feature_key}"
+                            )
+                            ppe_event = MatchEvent(
+                                tenant_id=self.tenant_id,
+                                label=f"PPE:{det.label}",
+                                score=det.confidence,
+                                camera_id=self.camera_id,
+                                person_key=None,
+                                snapshot_path=snapshot_path,
+                                event_type="ppe_detection",
+                            )
+                            if self.event_sink is not None:
+                                self.event_sink(ppe_event)
+                            else:
+                                with session_scope(self.config) as session:
+                                    persist_event(session, ppe_event)
+                    except Exception:
+                        logger.exception(
+                            "[%s] PPE detection error on '%s'", self.tenant_id, self.camera_name
+                        )
 
         except Exception:  # noqa: BLE001 — never let one camera kill the supervisor
             logger.exception("[%s] camera '%s' crashed", self.tenant_id, self.camera_name)

@@ -7,6 +7,7 @@ import AddCamera from "./features/cameras/AddCamera.jsx";
 import ViewCamera from "./features/cameras/ViewCamera.jsx";
 import PeoplePage from "./features/people/PeoplePage.jsx";
 import SettingsPage from "./features/settings/SettingsPage.jsx";
+import FeaturesPage from "./features/ppe/FeaturesPage.jsx";
 import { getCameras } from "./api/cameras.js";
 
 function loadSession() {
@@ -104,6 +105,7 @@ export default function App() {
       {page === "camera-add"  && <AddCamera onAdded={() => {}} />}
       {page === "camera-live" && <ViewCamera />}
       {page === "people"      && <PeoplePage />}
+      {page === "features"    && <FeaturesPage />}
       {page === "settings"    && <SettingsPage identity={session.identity} />}
     </AppLayout>
   );
