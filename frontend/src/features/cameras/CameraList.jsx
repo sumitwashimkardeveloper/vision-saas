@@ -8,7 +8,7 @@ export default function CameraList({ cameras, onRefresh }) {
   }
 
   if (!cameras.length) {
-    return <p style={{ color: "var(--muted)", fontSize: 13 }}>No cameras added yet.</p>;
+    return <p style={{ color: "var(--muted)", fontSize: 15 }}>No cameras added yet.</p>;
   }
 
   return (
@@ -26,16 +26,16 @@ export default function CameraList({ cameras, onRefresh }) {
           {cameras.map(cam => (
             <tr key={cam.id}>
               <td>{cam.name}</td>
-              <td style={{ fontFamily: "monospace", fontSize: 12, color: "var(--muted)", maxWidth: 360, wordBreak: "break-all" }}>
+              <td style={{ fontFamily: "monospace", fontSize: 14, color: "var(--muted)", maxWidth: 360, wordBreak: "break-all" }}>
                 {cam.rtsp_url}
               </td>
               <td>
-                <span className="tag" style={{ background: cam.enabled ? "rgba(34,197,94,0.1)" : undefined, color: cam.enabled ? "#22c55e" : undefined }}>
+                <span className="tag" style={{ background: cam.enabled ? "color-mix(in srgb, var(--success) 10%, transparent)" : undefined, color: cam.enabled ? "var(--success)" : undefined }}>
                   {cam.enabled ? "enabled" : "disabled"}
                 </span>
               </td>
               <td>
-                <button className="danger" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => remove(cam.id)}>
+                <button className="danger" style={{ padding: "4px 10px", fontSize: 14 }} onClick={() => remove(cam.id)}>
                   Delete
                 </button>
               </td>

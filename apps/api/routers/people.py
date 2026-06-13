@@ -1,12 +1,12 @@
 """People enrollment, scoped to the authenticated tenant.
 
-Flow: create a person -> upload one or more face images -> rebuild the gallery.
-Images are stored under data/tenants/<tenant>/people/<external_key>/ and the
-gallery embeddings cache is recomputed from them.
+Flow: create a person -> upload one or more face images.
+The gallery is rebuilt automatically after every image upload, replace, or delete.
 """
 
 from __future__ import annotations
 
+import shutil
 import time
 from pathlib import Path
 
@@ -30,6 +30,21 @@ router = APIRouter(prefix="/people", tags=["people"])
 
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
+# One shared detector instance per API process — lazy-loads ONNX on first use.
+_detector: FaceDetector | None = None
+
+
+def _get_detector(config: AppConfig) -> FaceDetector:
+    global _detector
+    if _detector is None:
+        _detector = FaceDetector(config.recognition)
+    return _detector
+
+
+def _auto_rebuild(config: AppConfig, tenant_id: str) -> None:
+    """Rebuild the gallery in the background of the current request."""
+    build_gallery(config, tenant_id, _get_detector(config))
+
 
 @router.get("", response_model=list[PersonOut])
 def list_people(repo: TenantRepository = Depends(get_tenant_repo)):
@@ -44,7 +59,6 @@ def create_person(
     user: User = Depends(get_current_user),
 ):
     person = repo.upsert_person(body.external_key, body.name, role=body.role, details=body.details)
-    # Make the enrollment image folder so the operator/UI can upload into it.
     (config.people_dir(user.tenant_id) / body.external_key).mkdir(parents=True, exist_ok=True)
     return person
 
@@ -71,7 +85,9 @@ async def upload_image(
     folder.mkdir(parents=True, exist_ok=True)
     dest = folder / f"{int(time.time() * 1000)}{ext}"
     dest.write_bytes(await file.read())
-    return MessageResult(message=f"saved {dest.name} (rebuild the gallery to apply)")
+
+    _auto_rebuild(config, user.tenant_id)
+    return MessageResult(message=f"saved {dest.name} — gallery updated")
 
 
 @router.put("/{external_key}/image", response_model=MessageResult)
@@ -101,7 +117,9 @@ async def replace_image(
 
     dest = folder / f"{int(time.time() * 1000)}{ext}"
     dest.write_bytes(await file.read())
-    return MessageResult(message=f"replaced image with {dest.name} (rebuild the gallery to apply)")
+
+    _auto_rebuild(config, user.tenant_id)
+    return MessageResult(message=f"replaced image with {dest.name} — gallery updated")
 
 
 @router.get("/{external_key}/image")
@@ -126,15 +144,26 @@ def get_person_image(
     )
     if not images:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No image for this person")
-    # Newest image last after the mtime sort.
     return FileResponse(str(images[-1]))
 
 
 @router.delete("/{external_key}", response_model=MessageResult)
-def delete_person(external_key: str, repo: TenantRepository = Depends(get_tenant_repo)):
+def delete_person(
+    external_key: str,
+    repo: TenantRepository = Depends(get_tenant_repo),
+    config: AppConfig = Depends(get_config),
+    user: User = Depends(get_current_user),
+):
     if not repo.delete_person(external_key):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Person not found")
-    return MessageResult(message=f"person '{external_key}' deleted")
+
+    # Remove their image folder from disk.
+    folder = config.people_dir(user.tenant_id) / external_key
+    if folder.exists():
+        shutil.rmtree(folder, ignore_errors=True)
+
+    _auto_rebuild(config, user.tenant_id)
+    return MessageResult(message=f"person '{external_key}' deleted — gallery updated")
 
 
 @router.post("/gallery/rebuild", response_model=GalleryRebuildResult)
@@ -142,13 +171,8 @@ def rebuild_gallery(
     config: AppConfig = Depends(get_config),
     user: User = Depends(get_current_user),
 ):
-    """Recompute the tenant's embeddings cache from enrolled images.
-
-    Returns enrolled_names (success) and failed_names (no face detected) so
-    the UI can warn the operator when a person's photos are unusable.
-    """
-    detector = FaceDetector(config.recognition)
-    result = build_gallery(config, user.tenant_id, detector)
+    """Manually recompute the tenant's embeddings cache. Usually not needed."""
+    result = build_gallery(config, user.tenant_id, _get_detector(config))
     return GalleryRebuildResult(
         tenant_id=user.tenant_id,
         people_enrolled=result.gallery.size,

@@ -28,8 +28,13 @@ from apps.core.frame_buffer import get_buffer   # Fix 4: shared FrameBuffer
 from apps.core.pipeline import MatchEvent, persist_event, save_snapshot
 from apps.core.ppe_detector import PPEDetector
 from apps.core.recognizer import Gallery, match
+from apps.core.repository import TenantRepository
 
 logger = logging.getLogger("camera_worker")
+
+# How often (seconds) the worker re-reads enabled PPE features from the DB.
+# Toggles in the UI take effect within this window without a worker restart.
+_FEATURES_REFRESH_INTERVAL = 30.0
 
 
 class CameraWorker(threading.Thread):
@@ -43,8 +48,6 @@ class CameraWorker(threading.Thread):
         gallery: Gallery,
         detector: FaceDetector | None = None,
         event_sink: Callable[[MatchEvent], None] | None = None,
-        ppe_detector: PPEDetector | None = None,
-        enabled_ppe_keys: set[str] | None = None,
     ):
         super().__init__(name=f"{tenant_id}:{camera_name}", daemon=True)
         self.config = config
@@ -54,12 +57,83 @@ class CameraWorker(threading.Thread):
         self.camera_name = camera_name
         self.gallery = gallery
         self.event_sink = event_sink
-        self.ppe_detector = ppe_detector
-        self.enabled_ppe_keys: set[str] = enabled_ppe_keys or set()
         # One detector per worker: FaceDetectorYN is stateful (input size),
         # sharing across threads would race.
         self.detector = detector or FaceDetector(config.recognition)
+        self.ppe_detector: PPEDetector | None = (
+            PPEDetector(config.ppe) if config.ppe.enabled else None
+        )
+        # Cache of currently enabled PPE feature keys, refreshed every 30 s.
+        self._enabled_ppe_keys: set[str] = set()
+        # Whether face recognition is toggled on for this tenant (refreshed too).
+        self._face_recognition_enabled: bool = False
+        self._features_loaded_at: float = 0.0
+
         self._stop_evt = threading.Event()
+
+    # ---- PPE feature cache ------------------------------------------------
+
+    def _refresh_features_if_needed(self) -> None:
+        """Re-read enabled PPE features from DB if the TTL has expired."""
+        now = time.monotonic()
+        if now - self._features_loaded_at < _FEATURES_REFRESH_INTERVAL:
+            return
+        try:
+            from apps.core.ppe_registry import FACE_RECOGNITION_KEY, PPE_FEATURES_BY_KEY
+            with session_scope(self.config) as session:
+                repo = TenantRepository(session, self.tenant_id)
+                # Per-camera: only features assigned to THIS camera are active.
+                raw = repo.get_enabled_features_for_camera(self.camera_id)
+            # Only keep keys that exist in the current registry.
+            self._enabled_ppe_keys = {k for k in raw if k in PPE_FEATURES_BY_KEY}
+            self._face_recognition_enabled = FACE_RECOGNITION_KEY in raw
+            self._features_loaded_at = now
+        except Exception:
+            logger.exception("[%s] failed to refresh features from DB", self.tenant_id)
+
+    # ---- PPE violation check ---------------------------------------------
+
+    def _check_ppe(self, frame: np.ndarray) -> None:
+        """Run PPE detection for enabled features; emit events for missing gear."""
+        self._refresh_features_if_needed()
+        if not self._enabled_ppe_keys:
+            return  # nothing toggled on — skip inference entirely
+
+        try:
+            detections = self.ppe_detector.detect(frame, self._enabled_ppe_keys)
+        except FileNotFoundError as exc:
+            logger.warning("[%s] PPE model unavailable: %s", self.tenant_id, exc)
+            self.ppe_detector = None  # disable to avoid repeated log spam
+            return
+
+        detected_keys = {d.feature_key for d in detections}
+        missing = self._enabled_ppe_keys - detected_keys
+        if not missing:
+            return
+
+        # Save one snapshot shared across all violation events for this frame.
+        snapshot_path = save_snapshot(self.config, self.tenant_id, frame, "ppe_violation")
+
+        for key in missing:
+            event = MatchEvent(
+                tenant_id=self.tenant_id,
+                label=f"ppe_violation:{key}",
+                score=1.0,
+                camera_id=self.camera_id,
+                snapshot_path=snapshot_path,
+            )
+            if self.event_sink is not None:
+                self.event_sink(event)
+            else:
+                with session_scope(self.config) as session:
+                    persist_event(session, event)
+
+        logger.info(
+            "[%s] PPE violation on camera %s — missing: %s",
+            self.tenant_id,
+            self.camera_id,
+            ", ".join(sorted(missing)),
+        )
 
     def stop(self) -> None:
         self._stop_evt.set()
@@ -115,54 +189,43 @@ class CameraWorker(threading.Thread):
                 if frame is None:
                     continue
 
-                for face in self.detector.detect(frame):
-                    result = match(self.gallery, face.embedding, rec.match_threshold)
-                    if not result.is_match and not rec.log_unknowns:
-                        continue
-                    snapshot_path = save_snapshot(
-                        self.config, self.tenant_id, frame, result.name
-                    )
-                    event = MatchEvent(
-                        tenant_id=self.tenant_id,
-                        label=result.name,
-                        score=result.score,
-                        camera_id=self.camera_id,
-                        person_key=result.key,
-                        snapshot_path=snapshot_path,
-                    )
-                    if self.event_sink is not None:
-                        # Fix 7: non-blocking hand-off to EventBatcher
-                        self.event_sink(event)
-                    else:
-                        with session_scope(self.config) as session:
-                            persist_event(session, event)
+                # Refresh toggle state up front so we can skip work that's off.
+                self._refresh_features_if_needed()
+                run_ppe = self.ppe_detector is not None and bool(self._enabled_ppe_keys)
 
-                # PPE detection — runs only when a model is configured and at
-                # least one feature is enabled for this tenant.
-                if self.ppe_detector and self.enabled_ppe_keys:
-                    try:
-                        for det in self.ppe_detector.detect(frame, self.enabled_ppe_keys):
-                            snapshot_path = save_snapshot(
-                                self.config, self.tenant_id, frame, f"ppe_{det.feature_key}"
-                            )
-                            ppe_event = MatchEvent(
-                                tenant_id=self.tenant_id,
-                                label=f"PPE:{det.label}",
-                                score=det.confidence,
-                                camera_id=self.camera_id,
-                                person_key=None,
-                                snapshot_path=snapshot_path,
-                                event_type="ppe_detection",
-                            )
-                            if self.event_sink is not None:
-                                self.event_sink(ppe_event)
-                            else:
-                                with session_scope(self.config) as session:
-                                    persist_event(session, ppe_event)
-                    except Exception:
-                        logger.exception(
-                            "[%s] PPE detection error on '%s'", self.tenant_id, self.camera_name
+                # Face detection is needed for recognition AND as person-presence
+                # for PPE. Skip it entirely only when both are off.
+                faces = []
+                if self._face_recognition_enabled or run_ppe:
+                    faces = self.detector.detect(frame)
+
+                # Identity matching + recognition events only when the feature is on.
+                if self._face_recognition_enabled:
+                    for face in faces:
+                        result = match(self.gallery, face.embedding, rec.match_threshold)
+                        if not result.is_match and not rec.log_unknowns:
+                            continue
+                        snapshot_path = save_snapshot(
+                            self.config, self.tenant_id, frame, result.name
                         )
+                        event = MatchEvent(
+                            tenant_id=self.tenant_id,
+                            label=result.name,
+                            score=result.score,
+                            camera_id=self.camera_id,
+                            person_key=result.key,
+                            snapshot_path=snapshot_path,
+                        )
+                        if self.event_sink is not None:
+                            self.event_sink(event)
+                        else:
+                            with session_scope(self.config) as session:
+                                persist_event(session, event)
+
+                # PPE check: only when at least one person is in the frame.
+                if faces and run_ppe:
+                    self._check_ppe(frame)
+
 
         except Exception:  # noqa: BLE001 — never let one camera kill the supervisor
             logger.exception("[%s] camera '%s' crashed", self.tenant_id, self.camera_name)

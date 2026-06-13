@@ -32,7 +32,6 @@ class MatchEvent:
     camera_id: int | None = None
     person_key: str | None = None      # resolved to person_id at write time
     snapshot_path: str | None = None
-    event_type: str = "face_match"     # "face_match" | "ppe_detection"
 
 
 def persist_event(session: Session, event: MatchEvent) -> None:
@@ -48,7 +47,6 @@ def persist_event(session: Session, event: MatchEvent) -> None:
         camera_id=event.camera_id,
         person_id=person_id,
         snapshot_path=event.snapshot_path,
-        event_type=event.event_type,
     )
 
 

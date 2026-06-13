@@ -38,6 +38,7 @@ class Tenant(Base):
     events: Mapped[list["Event"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     users: Mapped[list["User"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     features: Mapped[list["TenantFeature"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+    loading_config: Mapped[list["LoadingUnloadingConfig"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -105,8 +106,6 @@ class Event(Base):
     snapshot_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
 
-    event_type: Mapped[str] = mapped_column(String(32), default="face_match")
-
     tenant: Mapped[Tenant] = relationship(back_populates="events")
     person: Mapped[Person | None] = relationship(back_populates="events")
 
@@ -120,7 +119,49 @@ class TenantFeature(Base):
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
     feature_key: Mapped[str] = mapped_column(String(64))
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # JSON-encoded list[int] of camera IDs this feature applies to.
+    # Empty/None = feature inactive (must select at least one camera).
+    camera_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     tenant: Mapped[Tenant] = relationship(back_populates="features")
 
     __table_args__ = (UniqueConstraint("tenant_id", "feature_key", name="uq_feature_tenant_key"),)
+
+
+class LoadingUnloadingConfig(Base):
+    """Per-tenant configuration for the Loading / Unloading Tracking feature.
+
+    Stores the YOLO-World target object classes and the assigned/running camera
+    lists so the worker can pick up changes without a restart. One row per
+    tenant (unique constraint on tenant_id).
+    """
+
+    __tablename__ = "loading_unloading_configs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # "preset" | "custom" | "both"
+    source: Mapped[str] = mapped_column(String(16), default="preset")
+    # JSON-encoded list[str] of selected preset object names
+    presets: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON-encoded list[str] of user-added custom object names
+    customs: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON-encoded list[int] of camera IDs assigned to this tracking config.
+    camera_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON-encoded dict[str, list[str]]: per-camera class overrides {"cam_id": ["bottle"]}
+    camera_classes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON-encoded list[int] of camera IDs currently STARTED (counting actively
+    # running). Subset of camera_ids. Start/Stop per camera drives this.
+    running_camera_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    tenant: Mapped[Tenant] = relationship(back_populates="loading_config")
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_loading_config_tenant"),
+    )

@@ -24,7 +24,7 @@ function SlotBox({ label, preview, active, onClick }) {
       <div style={{
         width: "100%",
         aspectRatio: "1",
-        background: "#0c0e14",
+        background: "var(--bg-2)",
         border: `2px ${active ? "solid var(--accent)" : "dashed var(--line)"}`,
         borderRadius: 8,
         overflow: "hidden",
@@ -34,10 +34,10 @@ function SlotBox({ label, preview, active, onClick }) {
       }}>
         {preview
           ? <img src={preview} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <span style={{ fontSize: 11, color: "var(--muted)" }}>{label}</span>
+          : <span style={{ fontSize: 13, color: "var(--muted)" }}>{label}</span>
         }
       </div>
-      <span style={{ fontSize: 11, color: active ? "var(--accent)" : "var(--muted)", fontWeight: active ? 600 : 400 }}>
+      <span style={{ fontSize: 13, color: active ? "var(--accent)" : "var(--muted)", fontWeight: active ? 600 : 400 }}>
         {preview ? "✓ " : ""}{label}
       </span>
     </div>
@@ -143,9 +143,8 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
         await postForm(`/people/${key}/images`, fd);
       }
 
-      setStep("Enrolling for recognition…");
-      const rebuildResult = await postJson("/people/gallery/rebuild");
-      onAdded(rebuildResult);
+      // Gallery is rebuilt automatically by the server on each image upload.
+      onAdded();
       onClose();
     } catch (ex) {
       setErr(ex.message || "Failed to add person");
@@ -208,17 +207,17 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
             {SLOTS.map(slot => (
               <div key={slot} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                 <div style={{
-                  width: "100%", aspectRatio: "1", background: "#0c0e14",
+                  width: "100%", aspectRatio: "1", background: "var(--bg-2)",
                   border: "2px dashed var(--line)", borderRadius: 8,
                   overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
                   {previews[slot]
                     ? <img src={previews[slot]} alt={slot} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : <span style={{ fontSize: 11, color: "var(--muted)" }}>{slot}</span>
+                    : <span style={{ fontSize: 13, color: "var(--muted)" }}>{slot}</span>
                   }
                 </div>
                 <label style={{
-                  fontSize: 11, color: "var(--accent)", cursor: "pointer",
+                  fontSize: 13, color: "var(--accent)", cursor: "pointer",
                   padding: "4px 10px", border: "1px solid var(--accent)", borderRadius: 4,
                 }}>
                   {previews[slot] ? "Replace" : "Choose"} {slot}
@@ -238,14 +237,14 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
             ) : (
               <>
                 <video ref={videoRef} autoPlay playsInline muted
-                  style={{ width: "100%", borderRadius: 8, background: "#000", marginBottom: 10 }} />
+                  style={{ width: "100%", borderRadius: 8, background: "#000", marginBottom: 10, transform: "scaleX(-1)" }} />
 
                 {/* Slot selector */}
                 <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                   {SLOTS.map(slot => (
                     <button key={slot} type="button"
                       style={{
-                        flex: 1, fontSize: 12, padding: "6px 0",
+                        flex: 1, fontSize: 14, padding: "6px 0",
                         background: captureSlot === slot ? "var(--accent)" : "transparent",
                         border: `1px solid ${captureSlot === slot ? "var(--accent)" : "var(--line)"}`,
                         color: captureSlot === slot ? "#fff" : "var(--muted)",
@@ -256,7 +255,7 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
                   ))}
                 </div>
 
-                <button type="button" style={{ width: "100%", marginBottom: 12, fontSize: 13 }}
+                <button type="button" style={{ width: "100%", marginBottom: 12, fontSize: 15 }}
                   onClick={captureFrame}>
                   Capture {captureSlot} Photo
                 </button>
@@ -266,17 +265,17 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
                   {SLOTS.map(slot => (
                     <div key={slot} style={{ flex: 1 }}>
                       <div style={{
-                        width: "100%", aspectRatio: "1", background: "#0c0e14",
+                        width: "100%", aspectRatio: "1", background: "var(--bg-2)",
                         border: previews[slot] ? "2px solid var(--accent)" : "1px dashed var(--line)",
                         borderRadius: 6, overflow: "hidden",
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
                         {previews[slot]
                           ? <img src={previews[slot]} alt={slot} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          : <span style={{ fontSize: 10, color: "var(--muted)" }}>{slot}</span>
+                          : <span style={{ fontSize: 12, color: "var(--muted)" }}>{slot}</span>
                         }
                       </div>
-                      <div style={{ textAlign: "center", fontSize: 11, color: previews[slot] ? "var(--accent)" : "var(--muted)", marginTop: 4 }}>
+                      <div style={{ textAlign: "center", fontSize: 13, color: previews[slot] ? "var(--accent)" : "var(--muted)", marginTop: 4 }}>
                         {previews[slot] ? "✓ " : ""}{slot}
                       </div>
                     </div>
@@ -287,7 +286,7 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
           </div>
         )}
 
-        {step && <div style={{ fontSize: 12, color: "var(--muted)" }}>{step}</div>}
+        {step && <div style={{ fontSize: 14, color: "var(--muted)" }}>{step}</div>}
         {err  && <div className="err">{err}</div>}
 
         <div className="modal-actions">

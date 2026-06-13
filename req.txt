@@ -1,9 +1,17 @@
-# ── Core vision ──────────────────────────────────────────────────────────────
-# Face detection  : OpenCV YuNet (bundled with opencv-python)
-# Face embeddings : ArcFace w600k_r50 ONNX via onnxruntime
-# PPE detection   : YOLOv8 ONNX via onnxruntime (model downloaded separately)
-onnxruntime>=1.18,<2.0       # swap for onnxruntime-gpu on GPU hosts
-opencv-python>=4.9            # cv2.FaceDetectorYN (YuNet) + image I/O
+# PyTorch CUDA 12.1 index — provides torch + torchvision GPU builds.
+# Change cu121 → cu118 if your driver only supports CUDA 11.8.
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+# ── Deep learning (YOLO-World) ────────────────────────────────────────────────
+torch>=2.3.0
+torchvision>=0.18.0
+ultralytics>=8.2              # YOLO-World open-vocabulary detection
+git+https://github.com/ultralytics/CLIP.git  # CLIP text encoder required by YOLO-World
+lap>=0.5                       # ByteTrack assignment for loading/unloading cumulative counting
+
+# ── Core vision ───────────────────────────────────────────────────────────────
+onnxruntime>=1.18,<2.0        # CPU ONNX for PPE/face models (lightweight, fast enough)
+opencv-python>=4.9            # YuNet face detection + image I/O + NMSBoxes
 numpy>=1.26,<2.3
 
 # ── Data layer ────────────────────────────────────────────────────────────────
@@ -19,10 +27,6 @@ uvicorn>=0.29
 PyJWT>=2.8
 bcrypt>=4.1
 python-multipart>=0.0.9       # FastAPI file uploads (enrollment images)
-
-# ── Model downloads (one-time only, not needed at runtime) ───────────────────
-# pip install ultralytics    — to train / export a YOLOv8 PPE model to ONNX
-# pip install huggingface-hub — if fetching weights from HuggingFace
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 pytest>=8.0

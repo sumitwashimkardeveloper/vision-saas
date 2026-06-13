@@ -57,6 +57,16 @@ export async function patchJson(path, body) {
   return res.json();
 }
 
+export async function putJson(path, body) {
+  const res = await request(path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}
+
 export async function putForm(path, formData) {
   const res = await request(path, { method: "PUT", body: formData });
   if (!res.ok) throw new Error(await extractError(res));

@@ -9,7 +9,6 @@ recognition:
   # ONNX model files (relative to project root). Fetch via scripts/download_models.py.
   detector_model: models/face_detection_yunet_2023mar.onnx   # OpenCV YuNet
   recognition_model: models/w600k_r50.onnx                   # ArcFace, 512-d
-  # ONNX Runtime providers, tried in order. Use CUDAExecutionProvider first on GPU hosts.
   providers:
     - CPUExecutionProvider
   # YuNet detector input size for Path A (recognition worker). Larger = more accurate, slower.
@@ -44,6 +43,48 @@ auth:
   algorithm: HS256
   access_token_expire_minutes: 720  # 12 hours
 
+ppe:
+  # Path to YOLOv8n PPE ONNX model (relative to project root).
+  # Export from best.pt: from ultralytics import YOLO; YOLO('best.pt').export(format='onnx')
+  model: models/ppe_yolov8n.onnx
+  enabled: true
+  # Minimum detection confidence to count a PPE item as present (0..1).
+  conf_threshold: 0.4
+  # NMS IoU threshold.
+  nms_threshold: 0.45
+  # YOLO output class names in index order — must match your model's training classes.
+  class_names:
+    - gloves
+    - vest
+    - goggles
+    - helmet
+    - mask
+    - safety_shoe
+  providers:
+    - CPUExecutionProvider
+  # Which PPE classes to enforce is now controlled per-tenant via the Features
+  # toggles in the UI — no config change needed to add/remove checked items.
+
+loading:
+  # YOLO-World model for open-vocabulary object detection.
+  # ultralytics auto-downloads on first use (~100 MB, requires internet on first start).
+  # Options: yolov8s-worldv2.pt (fastest), yolov8m-worldv2.pt (better accuracy on GPU)
+  model: models/yolov8s-worldv2.pt
+  enabled: true
+  # Minimum detection confidence (lower = more detections, more noise).
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  # "cuda" for NVIDIA GPU, "cpu" to force CPU, "auto" lets ultralytics pick.
+  device: cuda
+  # How often (seconds) the worker re-reads the loading config from DB.
+  refresh_interval: 30.0
+  # How often (seconds) the worker writes updated counts to disk.
+  counts_write_interval: 2.0
+  # Count +1 once a tracked object's ID has been missing for this many frames.
+  # The whole camera view is the exit/truck zone. Raise to 15-20 if the camera
+  # has blur/occlusion that briefly drops tracks and causes early counts.
+  missing_frame_threshold: 10
+
 worker:
   # One OS process per this many cameras (Phase 4 scaling). Tune to CPU/GPU.
   cameras_per_process: 4
@@ -55,3 +96,4 @@ worker:
   heartbeat_timeout_sec: 30.0
   watchdog_poll_sec: 2.0
   restart_backoff_sec: 5.0
+

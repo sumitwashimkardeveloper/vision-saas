@@ -67,6 +67,53 @@ class AuthConfig:
 
 
 @dataclass(frozen=True)
+class PPEConfig:
+    # Path to the YOLOv8n PPE ONNX model (relative to project root).
+    model: str = "models/ppe_yolov8n.onnx"
+    enabled: bool = True
+    # Detection confidence threshold (0..1). Raise to reduce false positives.
+    conf_threshold: float = 0.4
+    # NMS IoU threshold.
+    nms_threshold: float = 0.45
+    # YOLO output class names in index order — must match how the model was exported.
+    # These are matched against ppe_registry.PPEFeatureDef.yolo_classes (case-insensitive).
+    class_names: list[str] = field(
+        default_factory=lambda: ["gloves", "vest", "goggles", "helmet", "mask", "safety_shoe"]
+    )
+    providers: list[str] = field(default_factory=lambda: ["CPUExecutionProvider"])
+
+    @property
+    def model_path(self):
+        return _resolve(self.model)
+
+
+@dataclass(frozen=True)
+class LoadingConfig:
+    """Configuration for the YOLO-World loading/unloading tracking detector."""
+
+    # Path to YOLO-World weights (relative to project root or absolute).
+    model: str = "models/yolov8s-worldv2.pt"
+    enabled: bool = True
+    conf_threshold: float = 0.25
+    iou_threshold: float = 0.45
+    # Inference device: "cuda", "cpu", or "auto" (ultralytics picks best available).
+    device: str = "auto"
+    # How often (seconds) the worker re-reads the loading config from DB.
+    refresh_interval: float = 30.0
+    # How often (seconds) the worker writes updated counts to disk.
+    counts_write_interval: float = 2.0
+    # Counting rule: a tracked object is counted +1 once its track ID has been
+    # missing (not visible) for this many consecutive frames. The whole camera
+    # view is treated as the exit/truck zone, so any tracked object that appears
+    # and then disappears for this long is counted exactly once.
+    missing_frame_threshold: int = 10
+
+    @property
+    def model_path(self) -> Path:
+        return _resolve(self.model)
+
+
+@dataclass(frozen=True)
 class WorkerConfig:
     # Phase 4 scaling. The ProcessManager spawns one OS process per group of
     # this many cameras; each process runs its cameras as threads.
@@ -84,27 +131,6 @@ class WorkerConfig:
 
 
 @dataclass(frozen=True)
-class PPEConfig:
-    # Path to the YOLOv8 ONNX model trained on PPE classes.
-    # Fetch with: python -m scripts.download_models --ppe
-    model: str = "models/ppe_yolov8.onnx"
-    # YOLO class names in the same order as the model's output head.
-    # Must be set to match your specific model — see scripts/download_models.py.
-    class_names: list[str] = field(default_factory=list)
-    conf_thresh: float = 0.45
-    nms_thresh: float = 0.45
-
-    @property
-    def model_path(self) -> Path:
-        return _resolve(self.model)
-
-    @property
-    def is_configured(self) -> bool:
-        """True when the model file exists and class_names are set."""
-        return bool(self.class_names) and self.model_path.exists()
-
-
-@dataclass(frozen=True)
 class AppConfig:
     data_dir: Path
     db_file: str
@@ -113,6 +139,7 @@ class AppConfig:
     auth: AuthConfig
     worker: WorkerConfig = field(default_factory=WorkerConfig)
     ppe: PPEConfig = field(default_factory=PPEConfig)
+    loading: LoadingConfig = field(default_factory=LoadingConfig)
 
     # ---- Derived paths ----------------------------------------------------
     @property
@@ -215,11 +242,31 @@ def load_config(path: Path | str | None = None) -> AppConfig:
         restart_backoff_sec=float(worker.get("restart_backoff_sec", WorkerConfig.restart_backoff_sec)),
     )
 
+    _default_ppe = PPEConfig()
     ppe_cfg = PPEConfig(
-        model=ppe_raw.get("model", PPEConfig.model),
-        class_names=list(ppe_raw.get("class_names", [])),
-        conf_thresh=float(ppe_raw.get("conf_thresh", PPEConfig.conf_thresh)),
-        nms_thresh=float(ppe_raw.get("nms_thresh", PPEConfig.nms_thresh)),
+        model=ppe_raw.get("model", _default_ppe.model),
+        enabled=bool(ppe_raw.get("enabled", _default_ppe.enabled)),
+        conf_threshold=float(ppe_raw.get("conf_threshold", _default_ppe.conf_threshold)),
+        nms_threshold=float(ppe_raw.get("nms_threshold", _default_ppe.nms_threshold)),
+        class_names=list(ppe_raw.get("class_names", _default_ppe.class_names)),
+        providers=list(ppe_raw.get("providers", _default_ppe.providers)),
+    )
+
+    loading_raw = raw.get("loading", {})
+    _default_loading = LoadingConfig()
+    loading_cfg = LoadingConfig(
+        model=loading_raw.get("model", _default_loading.model),
+        enabled=bool(loading_raw.get("enabled", _default_loading.enabled)),
+        conf_threshold=float(loading_raw.get("conf_threshold", _default_loading.conf_threshold)),
+        iou_threshold=float(loading_raw.get("iou_threshold", _default_loading.iou_threshold)),
+        device=str(loading_raw.get("device", _default_loading.device)),
+        refresh_interval=float(loading_raw.get("refresh_interval", _default_loading.refresh_interval)),
+        counts_write_interval=float(
+            loading_raw.get("counts_write_interval", _default_loading.counts_write_interval)
+        ),
+        missing_frame_threshold=int(
+            loading_raw.get("missing_frame_threshold", _default_loading.missing_frame_threshold)
+        ),
     )
 
     data_dir = _resolve(storage.get("data_dir", "data"))
@@ -233,4 +280,5 @@ def load_config(path: Path | str | None = None) -> AppConfig:
         auth=auth_cfg,
         worker=worker_cfg,
         ppe=ppe_cfg,
+        loading=loading_cfg,
     )

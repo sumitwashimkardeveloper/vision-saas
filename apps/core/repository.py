@@ -13,7 +13,7 @@ from typing import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Camera, Event, Person, Tenant, TenantFeature
+from .models import Camera, Event, LoadingUnloadingConfig, Person, Tenant, TenantFeature
 
 
 class TenantRepository:
@@ -101,29 +101,6 @@ class TenantRepository:
         self.session.flush()
         return True
 
-    # ---- Events -----------------------------------------------------------
-    def add_event(
-        self,
-        label: str,
-        score: float,
-        camera_id: int | None = None,
-        person_id: int | None = None,
-        snapshot_path: str | None = None,
-        event_type: str = "face_match",
-    ) -> Event:
-        event = Event(
-            tenant_id=self.tenant_id,
-            camera_id=camera_id,
-            person_id=person_id,
-            label=label,
-            score=score,
-            snapshot_path=snapshot_path,
-            event_type=event_type,
-        )
-        self.session.add(event)
-        self.session.flush()
-        return event
-
     # ---- Features (PPE toggles) -------------------------------------------
 
     def list_features(self) -> list[TenantFeature]:
@@ -142,12 +119,22 @@ class TenantRepository:
         return self.session.scalars(stmt).first()
 
     def ensure_features(self) -> None:
-        """Insert default (disabled) rows for any PPE features not yet in the DB."""
-        from .ppe_registry import PPE_FEATURE_KEYS
+        """Insert default (disabled) rows for any feature not yet in DB.
+        Also removes stale rows whose keys are no longer in the registry."""
+        from .ppe_registry import ALL_FEATURE_KEYS
 
-        existing = {f.feature_key for f in self.list_features()}
-        for key in PPE_FEATURE_KEYS:
-            if key not in existing:
+        all_rows = self.list_features()
+        existing_keys = {f.feature_key for f in all_rows}
+        valid_keys = set(ALL_FEATURE_KEYS)
+
+        # Remove stale rows from old registry versions.
+        for row in all_rows:
+            if row.feature_key not in valid_keys:
+                self.session.delete(row)
+
+        # Add missing rows for new keys (default disabled).
+        for key in ALL_FEATURE_KEYS:
+            if key not in existing_keys:
                 self.session.add(
                     TenantFeature(tenant_id=self.tenant_id, feature_key=key, enabled=False)
                 )
@@ -163,9 +150,130 @@ class TenantRepository:
         self.session.flush()
         return feat
 
+    def set_feature_cameras(
+        self, feature_key: str, camera_ids: list[int]
+    ) -> TenantFeature | None:
+        """Set the list of camera IDs a feature applies to (JSON-encoded)."""
+        import json
+
+        self.ensure_features()
+        feat = self.get_feature(feature_key)
+        if feat is None:
+            return None
+        # Keep only camera IDs that belong to this tenant.
+        valid = {c.id for c in self.list_cameras()}
+        clean = [cid for cid in camera_ids if cid in valid]
+        feat.camera_ids = json.dumps(clean)
+        self.session.add(feat)
+        self.session.flush()
+        return feat
+
     def get_enabled_feature_keys(self) -> set[str]:
         self.ensure_features()
         return {f.feature_key for f in self.list_features() if f.enabled}
+
+    def get_enabled_features_for_camera(self, camera_id: int | None) -> set[str]:
+        """Feature keys that are enabled AND assigned to this camera.
+
+        Empty camera assignment means the feature is inactive (selection
+        required), so a feature only applies to cameras explicitly listed.
+        """
+        import json
+
+        if camera_id is None:
+            return set()
+        self.ensure_features()
+        result: set[str] = set()
+        for f in self.list_features():
+            if not f.enabled:
+                continue
+            try:
+                cam_ids = json.loads(f.camera_ids or "[]")
+            except (ValueError, TypeError):
+                cam_ids = []
+            if camera_id in cam_ids:
+                result.add(f.feature_key)
+        return result
+
+    # ---- Loading / Unloading config ---------------------------------------
+
+    def get_loading_config(self) -> LoadingUnloadingConfig | None:
+        stmt = select(LoadingUnloadingConfig).where(
+            LoadingUnloadingConfig.tenant_id == self.tenant_id
+        )
+        return self.session.scalars(stmt).first()
+
+    def upsert_loading_config(
+        self,
+        *,
+        enabled: bool = False,
+        source: str = "preset",
+        presets: list[str] | None = None,
+        customs: list[str] | None = None,
+        camera_ids: list[int] | None = None,
+        camera_classes: dict[str, list[str]] | None = None,
+    ) -> LoadingUnloadingConfig:
+        import json
+
+        cfg = self.get_loading_config()
+        if cfg is None:
+            cfg = LoadingUnloadingConfig(tenant_id=self.tenant_id)
+            self.session.add(cfg)
+
+        cfg.enabled = enabled
+        cfg.source = source
+        cfg.presets = json.dumps(presets or [])
+        cfg.customs = json.dumps(customs or [])
+        new_camera_ids = camera_ids or []
+        cfg.camera_ids = json.dumps(new_camera_ids)
+        cfg.camera_classes = json.dumps(camera_classes or {})
+        # Drop any running cameras that are no longer assigned.
+        running = json.loads(cfg.running_camera_ids or "[]")
+        cfg.running_camera_ids = json.dumps([c for c in running if c in new_camera_ids])
+        self.session.flush()
+        return cfg
+
+    def set_loading_camera_running(
+        self, camera_id: int, running: bool
+    ) -> LoadingUnloadingConfig | None:
+        """Start (running=True) or stop (running=False) counting for one camera."""
+        import json
+
+        cfg = self.get_loading_config()
+        if cfg is None:
+            return None
+        current = json.loads(cfg.running_camera_ids or "[]")
+        assigned = json.loads(cfg.camera_ids or "[]")
+        ids = set(current)
+        if running:
+            if camera_id in assigned:
+                ids.add(camera_id)
+        else:
+            ids.discard(camera_id)
+        cfg.running_camera_ids = json.dumps(sorted(ids))
+        self.session.flush()
+        return cfg
+
+    # ---- Events -----------------------------------------------------------
+    def add_event(
+        self,
+        label: str,
+        score: float,
+        camera_id: int | None = None,
+        person_id: int | None = None,
+        snapshot_path: str | None = None,
+    ) -> Event:
+        event = Event(
+            tenant_id=self.tenant_id,
+            camera_id=camera_id,
+            person_id=person_id,
+            label=label,
+            score=score,
+            snapshot_path=snapshot_path,
+        )
+        self.session.add(event)
+        self.session.flush()
+        return event
 
     def list_events(self, limit: int = 100) -> Sequence[Event]:
         stmt = (

@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { setToken, setUnauthorizedHandler, getJson, postJson } from "./api/client.js";
+import { setToken, setUnauthorizedHandler } from "./api/client.js";
 import Login from "./features/auth/Login.jsx";
 import Register from "./features/auth/Register.jsx";
 import AppLayout from "./layout/AppLayout.jsx";
 import AddCamera from "./features/cameras/AddCamera.jsx";
 import ViewCamera from "./features/cameras/ViewCamera.jsx";
-import PeoplePage from "./features/people/PeoplePage.jsx";
 import SettingsPage from "./features/settings/SettingsPage.jsx";
 import FeaturesPage from "./features/ppe/FeaturesPage.jsx";
 import { getCameras } from "./api/cameras.js";
@@ -16,34 +15,6 @@ function loadSession() {
   return token && identity ? { token, identity } : null;
 }
 
-function WorkerButton() {
-  const [running, setRunning] = useState(false);
-  const [busy, setBusy]       = useState(false);
-
-  async function fetchStatus() {
-    try { const s = await getJson("/worker/status"); setRunning(s.running); } catch {}
-  }
-
-  useEffect(() => {
-    fetchStatus();
-    const id = setInterval(fetchStatus, 5000);
-    return () => clearInterval(id);
-  }, []);
-
-  async function toggle() {
-    setBusy(true);
-    try { await postJson(running ? "/worker/stop" : "/worker/start"); await fetchStatus(); }
-    catch {}
-    finally { setBusy(false); }
-  }
-
-  return (
-    <button className={`worker-btn${running ? " running" : ""}`} onClick={toggle} disabled={busy}>
-      <span className={`status-dot${running ? " on" : ""}`} />
-      {busy ? "…" : running ? "Stop worker" : "Start worker"}
-    </button>
-  );
-}
 
 function HomePage() {
   const [stats, setStats] = useState({ cameras: 0 });
@@ -58,11 +29,11 @@ function HomePage() {
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 14, marginBottom: 24 }}>
         <div className="panel" style={{ margin: 0 }}>
-          <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>Cameras</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{stats.cameras}</div>
+          <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 6 }}>Cameras</div>
+          <div style={{ fontSize: 31, fontWeight: 700 }}>{stats.cameras}</div>
         </div>
       </div>
-      <div className="panel" style={{ color: "var(--muted)", fontSize: 13 }}>
+      <div className="panel" style={{ color: "var(--muted)", fontSize: 15 }}>
         Welcome to VisionFR — select a section from the sidebar to get started.
       </div>
     </div>
@@ -98,14 +69,13 @@ export default function App() {
 
   return (
     <AppLayout page={page} setPage={setPage} user={session.identity} onLogout={handleLogout}>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <WorkerButton />
-      </div>
-      {page === "home"        && <HomePage />}
+{page === "home"        && <HomePage />}
       {page === "camera-add"  && <AddCamera onAdded={() => {}} />}
       {page === "camera-live" && <ViewCamera />}
-      {page === "people"      && <PeoplePage />}
-      {page === "features"    && <FeaturesPage />}
+      {page.startsWith("feat/") && (() => {
+        const [, grp, key] = page.split("/");
+        return <FeaturesPage group={grp} featureKey={key} />;
+      })()}
       {page === "settings"    && <SettingsPage identity={session.identity} />}
     </AppLayout>
   );

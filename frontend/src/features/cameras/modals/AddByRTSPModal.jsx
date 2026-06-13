@@ -46,7 +46,7 @@ export default function AddByRTSPModal({ onClose, onAdded, camera = null }) {
             value={url}
             onChange={e => setUrl(e.target.value)}
             placeholder={HINT}
-            style={{ fontFamily: "monospace", fontSize: 12 }}
+            style={{ fontFamily: "monospace", fontSize: 14 }}
           />
           <span className="modal-hint">{HINT}</span>
         </div>

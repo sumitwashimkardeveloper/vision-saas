@@ -1,9 +1,7 @@
-"""PPE feature registry: canonical list of detectable PPE items.
+"""PPE feature registry: maps frontend feature keys to YOLO class names.
 
-Each PPEFeatureDef maps a feature key (used in the DB and API) to the YOLO
-class names that represent that item across common public PPE datasets.
-The matching is case-insensitive and checked against yolo_classes at
-PPEDetector construction time.
+Feature keys must match exactly what FeaturesPage.jsx uses (e.g. 'helmet_detection').
+yolo_classes lists the YOLO output class name(s) that satisfy that feature.
 """
 
 from __future__ import annotations
@@ -13,57 +11,46 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class PPEFeatureDef:
-    key: str
-    label: str
+    key: str            # frontend toggle key, stored in tenant_features
+    label: str          # human-readable display name
     description: str
-    # YOLO class name variants to match (case-insensitive)
-    yolo_classes: tuple[str, ...]
+    yolo_classes: tuple[str, ...]  # YOLO class names that count as this feature
 
 
 PPE_FEATURES: list[PPEFeatureDef] = [
-    PPEFeatureDef(
-        "helmet",
-        "Helmet",
-        "Hard hat / safety helmet",
-        ("hardhat", "helmet", "hard-hat", "hard hat", "safety helmet"),
-    ),
-    PPEFeatureDef(
-        "safety_vest",
-        "Safety Vest",
-        "High-visibility safety vest",
-        ("safety vest", "vest", "safety-vest", "hi-vis", "high visibility vest"),
-    ),
-    PPEFeatureDef(
-        "face_mask",
-        "Face Mask",
-        "Protective face mask",
-        ("mask", "face mask", "face-mask", "respirator"),
-    ),
-    PPEFeatureDef(
-        "gloves",
-        "Gloves",
-        "Safety / protective gloves",
-        ("gloves", "glove", "safety gloves"),
-    ),
-    PPEFeatureDef(
-        "safety_goggles",
-        "Safety Goggles",
-        "Protective eye goggles",
-        ("goggles", "safety goggles", "eye protection", "glasses"),
-    ),
-    PPEFeatureDef(
-        "safety_shoes",
-        "Safety Shoes",
-        "Steel-toe / safety footwear",
-        ("boots", "safety shoes", "safety boots", "shoes", "safety footwear"),
-    ),
-    PPEFeatureDef(
-        "full_body_suit",
-        "Full Body Suit",
-        "Protective full-body coverall",
-        ("coverall", "full body suit", "full-body suit", "suit", "coveralls"),
-    ),
+    PPEFeatureDef("helmet_detection",     "Helmet",        "Hard hat / safety helmet",       ("helmet",)),
+    PPEFeatureDef("vest_detection",       "Safety Vest",   "High-visibility reflective vest", ("vest",)),
+    PPEFeatureDef("gloves_detection",     "Gloves",        "Protective safety gloves",        ("gloves",)),
+    PPEFeatureDef("goggles_detection",    "Goggles",       "Protective eye goggles",          ("goggles",)),
+    PPEFeatureDef("mask_detection",       "Face Mask",     "Protective face mask",            ("mask",)),
 ]
 
 PPE_FEATURE_KEYS: list[str] = [f.key for f in PPE_FEATURES]
 PPE_FEATURES_BY_KEY: dict[str, PPEFeatureDef] = {f.key: f for f in PPE_FEATURES}
+
+
+# ── Non-PPE features that still use the generic tenant_features toggle table ──
+# These have no YOLO classes; they gate other pipelines (e.g. face recognition).
+
+FACE_RECOGNITION_KEY = "face_recognition"
+
+
+@dataclass(frozen=True)
+class FeatureDef:
+    key: str
+    label: str
+    description: str
+
+
+OTHER_FEATURES: list[FeatureDef] = [
+    FeatureDef(
+        FACE_RECOGNITION_KEY,
+        "Face Recognition",
+        "Detect and match enrolled people across all cameras",
+    ),
+]
+OTHER_FEATURES_BY_KEY: dict[str, FeatureDef] = {f.key: f for f in OTHER_FEATURES}
+
+# Every feature key persisted in the tenant_features table (PPE + others).
+# ensure_features() uses this to seed new rows and prune stale ones.
+ALL_FEATURE_KEYS: list[str] = PPE_FEATURE_KEYS + [f.key for f in OTHER_FEATURES]

@@ -60,7 +60,7 @@ export default function SettingsPage({ identity }) {
           <label>Confirm new password</label>
           <PasswordInput value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Confirm new password" />
           {err && <p className="err">{err}</p>}
-          {msg && <p style={{ color: "#4caf50", margin: 0 }}>{msg}</p>}
+          {msg && <p style={{ color: "var(--success)", margin: 0 }}>{msg}</p>}
           <button type="submit" disabled={busy} style={{ alignSelf: "flex-start" }}>
             {busy ? "Saving…" : "Update password"}
           </button>

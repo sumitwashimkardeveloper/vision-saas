@@ -59,11 +59,51 @@ def ensure_schema(config: AppConfig) -> None:
 
     engine = get_engine(config)
     inspector = inspect(engine)
-    if (
-        inspector.has_table("tenants")
-        and inspector.has_table("users")
-        and inspector.has_table("tenant_features")
-    ):
+    if inspector.has_table("tenants") and inspector.has_table("users"):
+        # Core schema exists. Create any new tables added since initial deploy.
+        from .models import Base
+        from sqlalchemy import text as _text
+        for tbl in ("tenant_features", "loading_unloading_configs"):
+            if not inspector.has_table(tbl):
+                Base.metadata.tables[tbl].create(engine)
+        # Add camera_ids column if the table exists but lacks it (online migration).
+        if inspector.has_table("loading_unloading_configs"):
+            existing_cols = {c["name"] for c in inspector.get_columns("loading_unloading_configs")}
+            if "camera_ids" not in existing_cols:
+                with engine.connect() as conn:
+                    conn.execute(_text("ALTER TABLE loading_unloading_configs ADD COLUMN camera_ids TEXT"))
+                    conn.commit()
+            if "camera_classes" not in existing_cols:
+                with engine.connect() as conn:
+                    conn.execute(_text("ALTER TABLE loading_unloading_configs ADD COLUMN camera_classes TEXT"))
+                    conn.commit()
+            if "running_camera_ids" not in existing_cols:
+                with engine.connect() as conn:
+                    conn.execute(_text("ALTER TABLE loading_unloading_configs ADD COLUMN running_camera_ids TEXT"))
+                    conn.commit()
+            # Drop columns from abandoned designs (zone drawing + multiple
+            # counting modes). The single counting method is now whole-frame
+            # visibility-loss, so these are dead. SQLite 3.35+ supports DROP
+            # COLUMN; the legacy `camera_id` FK column is intentionally left as a
+            # harmless nullable orphan since SQLite can't DROP a FK column without
+            # a full table rebuild (fresh installs never create it).
+            for dead_col in ("counting_mode", "zone_config"):
+                if dead_col in existing_cols:
+                    try:
+                        with engine.connect() as conn:
+                            conn.execute(_text(
+                                f"ALTER TABLE loading_unloading_configs DROP COLUMN {dead_col}"
+                            ))
+                            conn.commit()
+                    except Exception:  # pragma: no cover - best-effort cleanup
+                        pass
+        # Add camera_ids column to tenant_features if missing (online migration).
+        if inspector.has_table("tenant_features"):
+            feat_cols = {c["name"] for c in inspector.get_columns("tenant_features")}
+            if "camera_ids" not in feat_cols:
+                with engine.connect() as conn:
+                    conn.execute(_text("ALTER TABLE tenant_features ADD COLUMN camera_ids TEXT"))
+                    conn.commit()
         return
 
     from .config import PROJECT_ROOT  # local import avoids any import cycle
@@ -84,11 +124,6 @@ def ensure_schema(config: AppConfig) -> None:
 
         Base.metadata.create_all(engine)
 
-    # Additive safety net: create any tables added after the initial migration
-    # (e.g. tenant_features) without touching existing data.
-    from .models import Base as _Base
-
-    _Base.metadata.create_all(engine)
 
 
 @contextmanager

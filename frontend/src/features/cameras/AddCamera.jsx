@@ -40,11 +40,11 @@ function CameraInfo({ rtsp_url }) {
   if (info.isIP) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <div style={{ fontSize: 13, fontFamily: "monospace", color: "var(--fg)" }}>
+        <div style={{ fontSize: 15, fontFamily: "monospace", color: "var(--fg)" }}>
           {info.host} <span style={{ color: "var(--muted)" }}>:{info.port}</span>
         </div>
         {info.username && (
-          <div style={{ fontSize: 11, color: "var(--muted)" }}>
+          <div style={{ fontSize: 13, color: "var(--muted)" }}>
             User: {info.username} {info.hasPass ? "· Password: ••••••" : ""}
           </div>
         )}
@@ -52,7 +52,7 @@ function CameraInfo({ rtsp_url }) {
     );
   }
   return (
-    <span style={{ fontFamily: "monospace", fontSize: 11, color: "var(--muted)", wordBreak: "break-all" }}>
+    <span style={{ fontFamily: "monospace", fontSize: 13, color: "var(--muted)", wordBreak: "break-all" }}>
       {rtsp_url}
     </span>
   );
@@ -63,8 +63,8 @@ function CameraType({ rtsp_url }) {
   return (
     <span className="tag" style={{
       background: info.isIP ? "rgba(79,140,255,0.1)" : "rgba(167,139,250,0.1)",
-      color: info.isIP ? "var(--accent)" : "#a78bfa",
-      fontSize: 11,
+      color: info.isIP ? "var(--accent)" : "var(--accent-2)",
+      fontSize: 13,
     }}>
       {info.isIP ? "IP Camera" : "RTSP URL"}
     </span>
@@ -127,7 +127,7 @@ export default function AddCamera() {
         )}
 
         {tab === "scan" && (
-          <div style={{ color: "var(--muted)", fontSize: 13 }}>
+          <div style={{ color: "var(--muted)", fontSize: 15 }}>
             Network scan coming soon — use manual entry above.
           </div>
         )}
@@ -137,7 +137,7 @@ export default function AddCamera() {
       <div className="panel">
         <h2>Cameras</h2>
         {cameras.length === 0 ? (
-          <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>No cameras added yet.</p>
+          <p style={{ color: "var(--muted)", fontSize: 15, margin: 0 }}>No cameras added yet.</p>
         ) : (
           <table>
             <thead>
@@ -158,7 +158,7 @@ export default function AddCamera() {
                   <td>
                     <span className="tag" style={{
                       background: cam.enabled ? "rgba(34,197,94,0.12)" : "rgba(255,93,93,0.1)",
-                      color: cam.enabled ? "#22c55e" : "var(--danger)",
+                      color: cam.enabled ? "var(--success)" : "var(--danger)",
                     }}>
                       {cam.enabled ? "● Live" : "○ Stopped"}
                     </span>
@@ -169,7 +169,7 @@ export default function AddCamera() {
                       <button
                         onClick={() => openEdit(cam)}
                         style={{
-                          padding: "4px 10px", fontSize: 12,
+                          padding: "4px 10px", fontSize: 14,
                           display: "flex", alignItems: "center", gap: 5,
                           background: "transparent",
                           border: "1px solid var(--line)",
@@ -182,11 +182,11 @@ export default function AddCamera() {
                       <button
                         onClick={() => toggle(cam.id)}
                         style={{
-                          padding: "4px 10px", fontSize: 12,
+                          padding: "4px 10px", fontSize: 14,
                           display: "flex", alignItems: "center", gap: 5,
                           background: cam.enabled ? "rgba(255,93,93,0.15)" : "rgba(34,197,94,0.15)",
-                          border: `1px solid ${cam.enabled ? "var(--danger)" : "#22c55e"}`,
-                          color: cam.enabled ? "var(--danger)" : "#22c55e",
+                          border: `1px solid ${cam.enabled ? "var(--danger)" : "var(--success)"}`,
+                          color: cam.enabled ? "var(--danger)" : "var(--success)",
                         }}
                       >
                         <PowerIcon /> {cam.enabled ? "Stop" : "Start"}
@@ -194,7 +194,7 @@ export default function AddCamera() {
                       {/* Delete */}
                       <button
                         className="danger"
-                        style={{ padding: "4px 10px", fontSize: 12 }}
+                        style={{ padding: "4px 10px", fontSize: 14 }}
                         onClick={() => remove(cam.id)}
                       >
                         Delete

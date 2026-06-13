@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { IconCamera, IconPeople, IconSettings, IconShield, IconLogout, IconChevron } from "./icons.jsx";
+import { IconCamera, IconSettings, IconShield, IconLogout, IconChevron } from "./icons.jsx";
+import { FEATURE_GROUPS } from "../features/ppe/featuresDef.jsx";
 
-function IconHome({ size = 16 }) {
+function IconHome({ size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -10,9 +11,29 @@ function IconHome({ size = 16 }) {
   );
 }
 
+function BrandLogo() {
+  return (
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="var(--accent-soft)" />
+      <circle cx="12" cy="11" r="3.2" />
+      <circle cx="12" cy="11" r="0.6" fill="var(--accent)" stroke="none" />
+    </svg>
+  );
+}
+
+function parseFeaturePage(page) {
+  const parts = page.startsWith("feat/") ? page.split("/") : [];
+  return { groupKey: parts[1] || null, featureKey: parts[2] || null };
+}
+
 export default function Sidebar({ page, setPage, user, onLogout }) {
-  const [cameraOpen, setCameraOpen] = useState(
-    page === "camera-add" || page === "camera-live"
+  const { groupKey: activeGroupKey } = parseFeaturePage(page);
+
+  const [collapsed,    setCollapsed]    = useState(false);
+  const [cameraOpen,   setCameraOpen]   = useState(page === "camera-add" || page === "camera-live");
+  const [featuresOpen, setFeaturesOpen] = useState(page.startsWith("feat/"));
+  const [groupsOpen,   setGroupsOpen]   = useState(() =>
+    activeGroupKey ? { [activeGroupKey]: true } : {}
   );
 
   function goCamera(sub) {
@@ -21,16 +42,30 @@ export default function Sidebar({ page, setPage, user, onLogout }) {
   }
 
   function toggleCamera() {
-    const next = !cameraOpen;
-    setCameraOpen(next);
-    if (next) setPage("camera-add");
+    setCameraOpen(o => !o);
   }
 
-  const isCameraActive = page === "camera-add" || page === "camera-live";
+  function toggleGroup(key) {
+    setGroupsOpen(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  const isCameraActive   = page === "camera-add" || page === "camera-live";
+  const isFeaturesActive = page.startsWith("feat/");
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">VisionFR</div>
+    <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
+      <div className="sidebar-brand">
+        <span className="brand-logo"><BrandLogo /></span>
+        <span className="brand-name">Vision<span style={{ color: "var(--accent)" }}>FR</span></span>
+        <button
+          className="brand-collapse"
+          onClick={() => setCollapsed(c => !c)}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <IconChevron size={16} direction={collapsed ? "right" : "left"} />
+        </button>
+      </div>
+
       <nav className="sidebar-nav">
 
         {/* Home */}
@@ -38,76 +73,107 @@ export default function Sidebar({ page, setPage, user, onLogout }) {
           className={"sidebar-item" + (page === "home" ? " active" : "")}
           onClick={() => setPage("home")}
         >
-          <IconHome size={16} />
-          Home
+          <IconHome size={18} />
+          <span className="nav-label">Home</span>
         </button>
 
-        {/* Camera — expandable */}
+        {/* Camera */}
         <button
           className={"sidebar-item" + (isCameraActive ? " active" : "")}
           onClick={toggleCamera}
         >
-          <IconCamera size={16} />
-          Camera
+          <IconCamera size={18} />
+          <span className="nav-label">Camera</span>
           <span className="sidebar-chevron">
             <IconChevron size={12} direction={cameraOpen ? "down" : "right"} />
           </span>
         </button>
-        {cameraOpen && (
-          <>
+        {cameraOpen && !collapsed && (
+          <div className="sidebar-tree">
             <button
-              className={"sidebar-subitem" + (page === "camera-add" ? " active" : "")}
+              className={"sidebar-subitem2" + (page === "camera-add" ? " active" : "")}
               onClick={() => goCamera("camera-add")}
             >
-              Add Camera
+              <span className="tree-bullet" />
+              <span className="nav-label">Add Camera</span>
             </button>
             <button
-              className={"sidebar-subitem" + (page === "camera-live" ? " active" : "")}
+              className={"sidebar-subitem2" + (page === "camera-live" ? " active" : "")}
               onClick={() => goCamera("camera-live")}
             >
-              Live Camera
+              <span className="tree-bullet" />
+              <span className="nav-label">Live Camera</span>
             </button>
-          </>
+          </div>
         )}
 
-        {/* People */}
+        {/* Features — 3-level */}
         <button
-          className={"sidebar-item" + (page === "people" ? " active" : "")}
-          onClick={() => setPage("people")}
+          className={"sidebar-item" + (isFeaturesActive ? " active" : "")}
+          onClick={() => setFeaturesOpen(o => !o)}
         >
-          <IconPeople size={16} />
-          People
+          <IconShield size={18} />
+          <span className="nav-label">Features</span>
+          <span className="sidebar-chevron">
+            <IconChevron size={12} direction={featuresOpen ? "down" : "right"} />
+          </span>
         </button>
 
-        {/* Features (PPE Detection) */}
-        <button
-          className={"sidebar-item" + (page === "features" ? " active" : "")}
-          onClick={() => setPage("features")}
-        >
-          <IconShield size={16} />
-          Features
-        </button>
+        {featuresOpen && !collapsed && FEATURE_GROUPS.map(group => {
+          const isGroupActive = page.startsWith(`feat/${group.key}/`);
+          const isGroupOpen   = !!groupsOpen[group.key];
+
+          return (
+            <div key={group.key}>
+              {/* Group row */}
+              <button
+                className={"sidebar-group" + (isGroupOpen || isGroupActive ? " open" : "")}
+                onClick={() => toggleGroup(group.key)}
+              >
+                <span className="sidebar-group-icon">{group.icon}</span>
+                <span className="nav-label">{group.label}</span>
+                <span className="sidebar-chevron">
+                  <IconChevron size={11} direction={isGroupOpen ? "down" : "right"} />
+                </span>
+              </button>
+
+              {/* Feature rows */}
+              {isGroupOpen && (
+                <div className="sidebar-tree">
+                  {group.features.map(feat => (
+                    <button
+                      key={feat.key}
+                      className={"sidebar-subitem2" + (page === `feat/${group.key}/${feat.key}` ? " active" : "")}
+                      onClick={() => setPage(`feat/${group.key}/${feat.key}`)}
+                    >
+                      <span className="tree-bullet" />
+                      <span className="nav-label">{feat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Settings */}
         <button
           className={"sidebar-item" + (page === "settings" ? " active" : "")}
           onClick={() => setPage("settings")}
         >
-          <IconSettings size={16} />
-          Settings
+          <IconSettings size={18} />
+          <span className="nav-label">Settings</span>
         </button>
 
       </nav>
 
-      <div style={{ padding: "12px 0", borderTop: "1px solid var(--line)" }}>
-        {user && (
-          <div style={{ padding: "6px 20px 10px", fontSize: 12, color: "var(--muted)" }}>
-            {user.username}
-          </div>
+      <div className="sidebar-foot">
+        {user && !collapsed && (
+          <div className="sidebar-user">{user.username}</div>
         )}
         <button className="sidebar-item" onClick={onLogout}>
-          <IconLogout size={16} />
-          Sign out
+          <IconLogout size={18} />
+          <span className="nav-label">Sign out</span>
         </button>
       </div>
     </aside>

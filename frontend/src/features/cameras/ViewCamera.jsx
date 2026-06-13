@@ -34,7 +34,7 @@ function CameraTile({ camera, onToggle }) {
             border: "1px solid var(--danger)",
             color: "var(--danger)",
             padding: "2px 7px",
-            fontSize: 11,
+            fontSize: 13,
             display: "flex",
             alignItems: "center",
             gap: 4,
@@ -80,7 +80,7 @@ export default function ViewCamera() {
     <div>
       {err && <p className="err">{err}</p>}
       <div className="cam-toolbar">
-        <span style={{ color: "var(--muted)", fontSize: 13 }}>
+        <span style={{ color: "var(--muted)", fontSize: 15 }}>
           {cameras.length} camera(s) live
         </span>
         <div className="row" style={{ gap: 6 }}>
@@ -88,7 +88,7 @@ export default function ViewCamera() {
             <button
               key={l.label}
               className={layout.label === l.label ? "" : "ghost"}
-              style={{ padding: "5px 10px", fontSize: 12 }}
+              style={{ padding: "5px 10px", fontSize: 14 }}
               onClick={() => setLayout(l)}
             >
               {l.label}
@@ -98,7 +98,7 @@ export default function ViewCamera() {
       </div>
 
       {cameras.length === 0 && !err && (
-        <div className="panel" style={{ textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+        <div className="panel" style={{ textAlign: "center", color: "var(--muted)", fontSize: 15 }}>
           No cameras are running. Go to <strong>Add Camera</strong> and click <strong>Start</strong> to activate one.
         </div>
       )}
@@ -108,7 +108,7 @@ export default function ViewCamera() {
       </div>
 
       {cameras.length > (layout.max ?? layout.cols) && (
-        <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+        <p className="muted" style={{ marginTop: 10, fontSize: 14 }}>
           {cameras.length - (layout.max ?? layout.cols)} camera(s) not shown — switch to a larger grid.
         </p>
       )}

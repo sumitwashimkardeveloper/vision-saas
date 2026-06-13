@@ -17,7 +17,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from apps.api.deps import get_config
-from apps.api.routers import auth, cameras, events, features, meta, people, stream, tenant, worker
+from apps.api.routers import auth, cameras, events, features, loading, meta, people, stream, tenant, worker
 from apps.core.db import ensure_schema
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -25,10 +25,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create/upgrade the DB schema on startup so a fresh install can register a
-    # tenant from the dashboard without a separate init_db step.
-    ensure_schema(get_config())
+    config = get_config()
+    ensure_schema(config)
+
+    # Auto-manage YOLO-World detection threads based on DB loading config.
+    # Starts when cameras are added in the UI; stops when feature is disabled.
+    from apps.core.loading_worker import LoadingWorkerManager
+    manager = LoadingWorkerManager(config)
+    manager.start()
+    app.state.loading_manager = manager
+
     yield
+
+    manager.stop()
 
 
 app = FastAPI(
@@ -45,6 +54,7 @@ app.include_router(cameras.router)
 app.include_router(people.router)
 app.include_router(events.router)
 app.include_router(features.router)
+app.include_router(loading.router)
 app.include_router(worker.router)
 app.include_router(stream.router)
 

@@ -23,7 +23,6 @@ import threading
 from apps.core.config import AppConfig, load_config
 from apps.core.db import session_scope
 from apps.core.gallery import load_gallery
-from apps.core.ppe_detector import PPEDetector
 from apps.core.repository import TenantRepository
 from apps.core.tenant_service import list_tenants
 from apps.worker.camera_worker import CameraWorker
@@ -33,7 +32,7 @@ logger = logging.getLogger("supervisor")
 
 
 def _collect_targets(config: AppConfig, only_tenant: str | None):
-    """Return [(tenant_id, gallery, [(camera_id, name, rtsp)], enabled_ppe_keys)]."""
+    """Return [(tenant_id, gallery, [(camera_id, name, rtsp)])] for enabled cameras."""
     targets = []
     with session_scope(config) as session:
         tenant_ids = (
@@ -51,8 +50,7 @@ def _collect_targets(config: AppConfig, only_tenant: str | None):
             gallery = load_gallery(config, tid)
             if gallery.is_empty():
                 logger.warning("[%s] gallery empty — matches will all be 'unknown'", tid)
-            enabled_ppe_keys = repo.get_enabled_feature_keys()
-            targets.append((tid, gallery, cams, enabled_ppe_keys))
+            targets.append((tid, gallery, cams))
     return targets
 
 
@@ -63,35 +61,18 @@ def run(config: AppConfig, only_tenant: str | None = None) -> None:
         logger.warning("no enabled cameras to run — nothing to do")
         return
 
-    # Build a shared PPEDetector if the model is configured. One instance is
-    # safe to share across threads — each call is stateless except the session.
-    ppe_detector: PPEDetector | None = None
-    if config.ppe.is_configured:
-        ppe_detector = PPEDetector(
-            model_path=config.ppe.model_path,
-            class_names=config.ppe.class_names,
-            providers=list(config.recognition.providers),
-            conf_thresh=config.ppe.conf_thresh,
-            nms_thresh=config.ppe.nms_thresh,
-        )
-        logger.info("PPE detector ready (%d classes)", len(config.ppe.class_names))
-    else:
-        logger.info("PPE model not configured — PPE detection disabled")
-
     # Fix 7: one shared EventBatcher funnels all DB writes through a single
     # writer thread, eliminating per-event SQLite lock contention across
     # multiple CameraWorker threads (ADR-002).
     batcher = EventBatcher(config)
 
     workers: list[CameraWorker] = []
-    for tenant_id, gallery, cams, enabled_ppe_keys in targets:
+    for tenant_id, gallery, cams in targets:
         for camera_id, name, rtsp in cams:
             workers.append(
                 CameraWorker(
                     config, tenant_id, rtsp, camera_id, name, gallery,
                     event_sink=batcher.add,   # Fix 7: non-blocking hand-off
-                    ppe_detector=ppe_detector,
-                    enabled_ppe_keys=enabled_ppe_keys,
                 )
             )
 

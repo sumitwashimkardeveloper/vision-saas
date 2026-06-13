@@ -6,8 +6,9 @@ from .auth import (
 from .cameras import CameraCreate, CameraOut, CameraUpdate
 from .people import PersonCreate, PersonOut, GalleryRebuildResult
 from .events import EventOut
-from .features import FeatureOut
 from .common import MessageResult
+from .features import FeatureCamerasIn, FeatureOut
+from .loading import LoadingConfigIn, LoadingConfigOut, LoadingCountsOut
 
 __all__ = [
     "LoginRequest", "RegisterRequest", "TokenResponse",
@@ -15,6 +16,7 @@ __all__ = [
     "CameraCreate", "CameraOut", "CameraUpdate",
     "PersonCreate", "PersonOut", "GalleryRebuildResult",
     "EventOut",
-    "FeatureOut",
     "MessageResult",
+    "FeatureOut", "FeatureCamerasIn",
+    "LoadingConfigIn", "LoadingConfigOut", "LoadingCountsOut",
 ]
