@@ -84,6 +84,11 @@ loading:
   # The whole camera view is the exit/truck zone. Raise to 15-20 if the camera
   # has blur/occlusion that briefly drops tracks and causes early counts.
   missing_frame_threshold: 10
+  # A track must be visible for at least this many frames before it can count.
+  # Raise it (e.g. 8-15) if a flickery stream still produces phantom counts.
+  min_visible_frames: 5
+  # Custom ByteTrack config (bigger track_buffer => stable IDs => less inflation).
+  tracker: configs/trackers/bytetrack_loading.yaml
 
 worker:
   # One OS process per this many cameras (Phase 4 scaling). Tune to CPU/GPU.

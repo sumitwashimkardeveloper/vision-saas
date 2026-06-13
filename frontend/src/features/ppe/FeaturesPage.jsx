@@ -704,8 +704,8 @@ function LoadingUnloadingConfig({ accentColor }) {
           title={confirmDel.type === "camera" ? "Remove camera from tracking?" : "Remove object from pool?"}
           message={
             confirmDel.type === "camera"
-              ? `"${confirmDel.label}" will be removed from Loading / Unloading Tracking. This is saved to the database immediately.`
-              : `"${confirmDel.label}" will be removed from the object pool and from all camera assignments. This is saved to the database immediately.`
+              ? `"${confirmDel.label}" will be removed from Loading / Unloading Tracking.`
+              : `"${confirmDel.label}" will be removed from all camera assignments.`
           }
           onConfirm={() => {
             if (confirmDel.type === "camera") removeCamera(confirmDel.id);

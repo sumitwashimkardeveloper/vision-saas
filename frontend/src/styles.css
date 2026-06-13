@@ -401,7 +401,6 @@ th {
 .sidebar-item.active {
   background: var(--accent-soft);
   color: var(--accent);
-  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .sidebar-chevron {

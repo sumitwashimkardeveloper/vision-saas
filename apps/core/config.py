@@ -98,6 +98,11 @@ class LoadingConfig:
     iou_threshold: float = 0.45
     # Inference device: "cuda", "cpu", or "auto" (ultralytics picks best available).
     device: str = "auto"
+    # ByteTrack config. A larger track_buffer + higher new_track_thresh keep an
+    # object's ID stable through brief detection dropouts, so the same physical
+    # object isn't re-counted under many different IDs (the main cause of count
+    # inflation on choppy streams).
+    tracker: str = "configs/trackers/bytetrack_loading.yaml"
     # How often (seconds) the worker re-reads the loading config from DB.
     refresh_interval: float = 30.0
     # How often (seconds) the worker writes updated counts to disk.
@@ -107,6 +112,14 @@ class LoadingConfig:
     # view is treated as the exit/truck zone, so any tracked object that appears
     # and then disappears for this long is counted exactly once.
     missing_frame_threshold: int = 10
+    # A track must have been visible for at least this many frames before it is
+    # eligible to count. Filters out detection flicker / phantom IDs that appear
+    # for only a frame or two and then vanish.
+    min_visible_frames: int = 5
+
+    @property
+    def tracker_path(self) -> Path:
+        return _resolve(self.tracker)
 
     @property
     def model_path(self) -> Path:
@@ -260,12 +273,16 @@ def load_config(path: Path | str | None = None) -> AppConfig:
         conf_threshold=float(loading_raw.get("conf_threshold", _default_loading.conf_threshold)),
         iou_threshold=float(loading_raw.get("iou_threshold", _default_loading.iou_threshold)),
         device=str(loading_raw.get("device", _default_loading.device)),
+        tracker=str(loading_raw.get("tracker", _default_loading.tracker)),
         refresh_interval=float(loading_raw.get("refresh_interval", _default_loading.refresh_interval)),
         counts_write_interval=float(
             loading_raw.get("counts_write_interval", _default_loading.counts_write_interval)
         ),
         missing_frame_threshold=int(
             loading_raw.get("missing_frame_threshold", _default_loading.missing_frame_threshold)
+        ),
+        min_visible_frames=int(
+            loading_raw.get("min_visible_frames", _default_loading.min_visible_frames)
         ),
     )
 

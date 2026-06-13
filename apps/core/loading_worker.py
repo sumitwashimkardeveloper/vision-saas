@@ -107,9 +107,12 @@ class LoadingCameraThread(threading.Thread):
             conf_threshold=config.loading.conf_threshold,
             iou_threshold=config.loading.iou_threshold,
             device=config.loading.device,
+            tracker=str(config.loading.tracker_path),
         )
         # Frames a track ID must be missing before it counts as "loaded".
         self._missing_threshold = max(1, int(config.loading.missing_frame_threshold))
+        # Frames a track must have been visible before it is eligible to count.
+        self._min_visible = max(1, int(config.loading.min_visible_frames))
 
         self._class_names: list[str] = []
         self._lock      = threading.Lock()
@@ -169,9 +172,10 @@ class LoadingCameraThread(threading.Thread):
             mem = self._tracks.get(det.track_id)
             if mem is None:
                 self._tracks[det.track_id] = {
-                    "label": det.label, "missing": 0, "counted": False,
+                    "label": det.label, "seen": 1, "missing": 0, "counted": False,
                 }
             else:
+                mem["seen"] += 1
                 mem["missing"] = 0
                 mem["label"] = det.label  # keep the most recent label
 
@@ -180,6 +184,14 @@ class LoadingCameraThread(threading.Thread):
             if track_id in active_ids:
                 continue
             mem["missing"] += 1
+
+            # A track that was never visible long enough is detection flicker /
+            # a phantom ID — discard it without counting.
+            if not mem["counted"] and mem["seen"] < self._min_visible:
+                if mem["missing"] >= self._missing_threshold:
+                    del self._tracks[track_id]
+                continue
+
             if not mem["counted"] and mem["missing"] >= self._missing_threshold:
                 label = mem["label"]
                 self._loaded_count[label] = self._loaded_count.get(label, 0) + 1

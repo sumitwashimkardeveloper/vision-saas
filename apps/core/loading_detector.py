@@ -40,12 +40,15 @@ class LoadingDetector:
         conf_threshold: float = 0.25,
         iou_threshold: float = 0.45,
         device: str = "auto",
+        tracker: "str | Path" = "bytetrack.yaml",
     ) -> None:
         self.model_path = Path(model_path)
         self.conf_threshold = conf_threshold
         self.iou_threshold = iou_threshold
         # "auto" → let ultralytics pick (CUDA if available, else CPU)
         self.device = None if device == "auto" else device
+        # ByteTrack config: a path to a custom yaml, or a built-in name.
+        self.tracker = str(tracker)
         self._model = None
         self._current_classes: list[str] = []
 
@@ -103,7 +106,7 @@ class LoadingDetector:
             conf=self.conf_threshold,
             iou=self.iou_threshold,
             persist=True,
-            tracker="bytetrack.yaml",
+            tracker=self.tracker,
             verbose=False,
         )
         return self._boxes_to_detections(results, class_names)

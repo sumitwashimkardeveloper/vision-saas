@@ -1,0 +1,18 @@
+# Custom ByteTrack config for loading / unloading counting.
+#
+# The defaults (track_buffer: 30, new_track_thresh: 0.25) cause heavy ID churn
+# on choppy RTSP streams: a briefly-lost object is retired and re-acquired with
+# a NEW id, and our "ID disappeared -> +1" rule then counts the same physical
+# object many times. These values reduce that:
+#   - track_buffer 90    : keep a lost track alive ~3x longer so the SAME id is
+#                          re-used when the object reappears (fewer phantom ids).
+#   - new_track_thresh   : only start a new track from a confident detection,
+#                          so flicker doesn't spawn throwaway ids.
+#   - track_high_thresh  : raise the first-association confidence a little.
+tracker_type: bytetrack
+track_high_thresh: 0.35
+track_low_thresh: 0.1
+new_track_thresh: 0.5
+track_buffer: 90
+match_thresh: 0.85
+fuse_score: true
