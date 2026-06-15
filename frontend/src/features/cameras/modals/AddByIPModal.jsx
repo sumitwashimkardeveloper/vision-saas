@@ -80,11 +80,11 @@ export default function AddByIPModal({ onClose, onAdded, camera = null }) {
         <div className="modal-row-2">
           <div className="modal-field">
             <label>Username</label>
-            <input value={user} onChange={e => setUser(e.target.value)} placeholder="admin" />
+            <input value={user} onChange={e => setUser(e.target.value)} placeholder="admin" autoComplete="off" />
           </div>
           <div className="modal-field">
             <label>Password</label>
-            <PasswordInput value={pass} onChange={e => setPass(e.target.value)} />
+            <PasswordInput value={pass} onChange={e => setPass(e.target.value)} autoComplete="new-password" />
           </div>
         </div>
         {preview && (

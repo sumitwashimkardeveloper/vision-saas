@@ -55,8 +55,7 @@ export default function Sidebar({ page, setPage, user, onLogout }) {
   return (
     <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
       <div className="sidebar-brand">
-        <span className="brand-logo"><BrandLogo /></span>
-        <span className="brand-name">Vision<span style={{ color: "var(--accent)" }}>FR</span></span>
+        <img src={`${import.meta.env.BASE_URL}assets/logo.webp`} alt="GuardVision" className="brand-logo-img" />
         <button
           className="brand-collapse"
           onClick={() => setCollapsed(c => !c)}

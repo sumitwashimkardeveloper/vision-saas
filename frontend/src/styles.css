@@ -322,16 +322,22 @@ th {
 /* ---- Brand ---- */
 .sidebar-brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 20px 16px;
-  border-bottom: 1px solid var(--line);
+  padding: 0;
+  position: relative;
 }
 
 .brand-logo {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+}
+
+.brand-logo-img {
+  height: 150px;
+  width: 100%;
+  object-fit: contain;
 }
 
 .brand-name {
@@ -345,6 +351,10 @@ th {
 }
 
 .brand-collapse {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
   background: transparent;
   border: 0;
   color: var(--muted);
@@ -361,8 +371,18 @@ th {
   color: var(--accent);
 }
 
+.sidebar.collapsed .brand-logo-img {
+  display: none;
+}
+
 .sidebar.collapsed .brand-name {
   display: none;
+}
+
+.sidebar.collapsed .brand-collapse {
+  position: static;
+  transform: none;
+  margin: 12px auto;
 }
 
 .sidebar-nav {

@@ -17,7 +17,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from apps.api.deps import get_config
-from apps.api.routers import auth, cameras, events, features, loading, meta, people, stream, tenant, worker
+from apps.api.routers import auth, cameras, events, features, loading, meta, nvr, people, stream, tenant, worker
 from apps.core.db import ensure_schema
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -51,6 +51,7 @@ app.include_router(meta.router)
 app.include_router(auth.router)
 app.include_router(tenant.router)
 app.include_router(cameras.router)
+app.include_router(nvr.router)
 app.include_router(people.router)
 app.include_router(events.router)
 app.include_router(features.router)

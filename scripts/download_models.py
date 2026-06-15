@@ -1,4 +1,4 @@
-"""Download all models required by VisionFR.
+"""Download all models required by GuardVision.
 
 Run once after cloning / setting up the environment:
     python scripts/download_models.py
@@ -85,7 +85,7 @@ def _ensure_clip() -> None:
 
 
 def main() -> None:
-    print("\n=== VisionFR model setup ===\n")
+    print("\n=== GuardVision model setup ===\n")
 
     errors = []
     for name, url, dest in MODELS:

@@ -34,7 +34,7 @@ function HomePage() {
         </div>
       </div>
       <div className="panel" style={{ color: "var(--muted)", fontSize: 15 }}>
-        Welcome to VisionFR — select a section from the sidebar to get started.
+        Welcome to GuardVision — select a section from the sidebar to get started.
       </div>
     </div>
   );

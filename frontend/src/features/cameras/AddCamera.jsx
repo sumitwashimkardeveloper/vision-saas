@@ -2,7 +2,32 @@ import { useState, useEffect, useCallback } from "react";
 import { IconPlus } from "../../layout/icons.jsx";
 import AddByIPModal from "./modals/AddByIPModal.jsx";
 import AddByRTSPModal from "./modals/AddByRTSPModal.jsx";
+import SearchByNVRModal from "./modals/SearchByNVRModal.jsx";
 import { getCameras, deleteCamera, toggleCamera } from "../../api/cameras.js";
+
+function NVRIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+      <circle cx="7" cy="10" r="1.5" fill="currentColor" stroke="none" />
+      <line x1="10" y1="10" x2="18" y2="10" />
+      <line x1="10" y1="7" x2="18" y2="7" />
+    </svg>
+  );
+}
+
+function WifiIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+      <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+      <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
 function PowerIcon() {
   return (
@@ -72,8 +97,8 @@ function CameraType({ rtsp_url }) {
 }
 
 export default function AddCamera() {
-  const [tab,     setTab]    = useState("manual");
-  const [modal,   setModal]  = useState(null);   // null | "ip" | "rtsp"
+  const [tab,     setTab]    = useState("scan");
+  const [modal,   setModal]  = useState(null);   // null | "ip" | "rtsp" | "nvr"
   const [editing, setEditing] = useState(null);  // camera object being edited
   const [cameras, setCameras] = useState([]);
 
@@ -107,11 +132,11 @@ export default function AddCamera() {
       {/* ── Add form ── */}
       <div className="panel">
         <div className="cam-add-toggle">
+          <button className={"cam-toggle-btn" + (tab === "scan" ? " active" : "")} onClick={() => setTab("scan")}>
+            Search And Connect
+          </button>
           <button className={"cam-toggle-btn" + (tab === "manual" ? " active" : "")} onClick={() => setTab("manual")}>
             Add Manually
-          </button>
-          <button className={"cam-toggle-btn" + (tab === "scan" ? " active" : "")} onClick={() => setTab("scan")}>
-            Search by IP
           </button>
         </div>
 
@@ -127,8 +152,34 @@ export default function AddCamera() {
         )}
 
         {tab === "scan" && (
-          <div style={{ color: "var(--muted)", fontSize: 15 }}>
-            Network scan coming soon — use manual entry above.
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {/* Search by NVR */}
+            <button
+              className="cam-add-btn"
+              onClick={() => { setEditing(null); setModal("nvr"); }}
+              style={{ flex: 1, minWidth: 200 }}
+            >
+              <NVRIcon /> Search by NVR
+            </button>
+
+            {/* Search by WiFi — Coming Soon */}
+            <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
+              <button
+                className="cam-add-btn ghost"
+                disabled
+                style={{ width: "100%", opacity: 0.5, cursor: "not-allowed" }}
+              >
+                <WifiIcon /> Search by WiFi
+              </button>
+              <span style={{
+                position: "absolute", top: -8, right: 8,
+                background: "var(--accent)", color: "#fff",
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
+                padding: "2px 7px", borderRadius: 20,
+              }}>
+                Coming Soon
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -208,8 +259,9 @@ export default function AddCamera() {
         )}
       </div>
 
-      {modal === "ip"   && <AddByIPModal   onClose={closeModal} onAdded={load} camera={editing} />}
-      {modal === "rtsp" && <AddByRTSPModal onClose={closeModal} onAdded={load} camera={editing} />}
+      {modal === "ip"   && <AddByIPModal      onClose={closeModal} onAdded={load} camera={editing} />}
+      {modal === "rtsp" && <AddByRTSPModal    onClose={closeModal} onAdded={load} camera={editing} />}
+      {modal === "nvr"  && <SearchByNVRModal  onClose={closeModal} onAdded={load} />}
     </div>
   );
 }
