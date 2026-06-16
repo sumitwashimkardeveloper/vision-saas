@@ -39,7 +39,7 @@
 
 body {
   margin: 0;
-  font: 15.5px/1.55 system-ui, "Segoe UI", Roboto, sans-serif;
+  font: clamp(11.5px, 0.85vw, 13px)/1.45 system-ui, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--fg);
 }
@@ -68,10 +68,10 @@ button {
   background: var(--accent);
   color: #fff;
   border: 0;
-  border-radius: 6px;
-  padding: 7px 12px;
+  border-radius: clamp(3px, 0.32vw, 5px);
+  padding: clamp(3px, 0.32vw, 5px) clamp(6px, 0.58vw, 9px);
   cursor: pointer;
-  font-size: 15px;
+  font-size: clamp(11px, 0.82vw, 12.5px);
 }
 
 button.ghost {
@@ -94,9 +94,9 @@ select {
   background: var(--input-bg);
   border: 1px solid var(--line);
   color: var(--fg);
-  border-radius: 6px;
-  padding: 7px 9px;
-  font-size: 15px;
+  border-radius: clamp(3px, 0.32vw, 5px);
+  padding: clamp(3px, 0.32vw, 5px) clamp(5px, 0.48vw, 8px);
+  font-size: clamp(11px, 0.82vw, 12.5px);
 }
 
 main {
@@ -108,15 +108,15 @@ main {
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 18px;
+  border-radius: clamp(5px, 0.5vw, 8px);
+  padding: clamp(7px, 0.65vw, 10px);
+  margin-bottom: clamp(7px, 0.7vw, 11px);
   box-shadow: var(--shadow);
 }
 
 .panel h2 {
-  margin: 0 0 12px;
-  font-size: 16px;
+  margin: 0 0 clamp(6px, 0.55vw, 9px);
+  font-size: clamp(11px, 0.82vw, 12.5px);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -141,9 +141,9 @@ table {
 th,
 td {
   text-align: left;
-  padding: 8px 10px;
+  padding: clamp(4px, 0.35vw, 6px) clamp(5px, 0.48vw, 8px);
   border-bottom: 1px solid var(--line);
-  font-size: 15px;
+  font-size: clamp(11px, 0.82vw, 12.5px);
   vertical-align: top;
 }
 
@@ -154,9 +154,9 @@ th {
 
 .tag {
   display: inline-block;
-  padding: 1px 8px;
+  padding: 1px clamp(5px, 0.48vw, 8px);
   border-radius: 999px;
-  font-size: 14px;
+  font-size: clamp(11px, 0.85vw, 13px);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -221,14 +221,253 @@ th {
   margin-bottom: 12px;
 }
 
-.login {
-  max-width: 360px;
-  margin: 8vh auto;
+/* ---- Auth pages (Login / Register) ---- */
+.auth-bg {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(140deg, #cce5f5 0%, #b3d8f0 25%, #daeef8 55%, #c2dff0 80%, #e8f5fd 100%);
+  position: relative;
+  overflow: hidden;
 }
 
-.login .panel > * {
+.auth-bg::before {
+  content: "";
+  position: absolute;
+  top: -100px;
+  left: -100px;
+  width: 380px;
+  height: 380px;
+  border: 55px solid rgba(100, 180, 220, 0.18);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.auth-bg::after {
+  content: "";
+  position: absolute;
+  bottom: -110px;
+  right: -110px;
+  width: 420px;
+  height: 420px;
+  border: 60px solid rgba(100, 180, 220, 0.14);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.auth-dots {
+  position: absolute;
+  top: 70px;
+  left: 50px;
+  width: 140px;
+  height: 140px;
+  background-image: radial-gradient(circle, rgba(14, 141, 170, 0.35) 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+  pointer-events: none;
+}
+
+.auth-card {
+  background: #fff;
+  border-radius: clamp(12px, 1.2vw, 20px);
+  padding: clamp(8px, 0.8vw, 14px) clamp(18px, 2vw, 32px) clamp(16px, 1.6vw, 24px);
+  width: 90vw;
+  max-width: clamp(280px, 24vw, 390px);
+  box-shadow: 0 20px 60px rgba(15, 39, 64, 0.14), 0 4px 16px rgba(15, 39, 64, 0.07);
+  position: relative;
+  z-index: 1;
+}
+
+.auth-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: clamp(2px, 0.2vw, 4px);
+}
+
+.auth-logo-img {
+  height: clamp(80px, 9vw, 150px);
+  width: auto;
+  object-fit: contain;
+}
+
+.auth-title {
+  font-size: clamp(18px, 1.8vw, 24px);
+  font-weight: 700;
+  color: var(--fg);
+  text-align: center;
+  margin: 0 0 clamp(2px, 0.3vw, 4px);
+}
+
+.auth-subtitle {
+  font-size: clamp(11px, 0.9vw, 13px);
+  color: var(--muted);
+  text-align: center;
+  margin: 0 0 clamp(10px, 1vw, 16px);
+}
+
+.auth-field {
+  position: relative;
+  margin-bottom: clamp(8px, 0.8vw, 12px);
+}
+
+.auth-field-icon {
+  position: absolute;
+  left: clamp(9px, 0.8vw, 13px);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.auth-field-icon svg {
+  width: clamp(13px, 1.1vw, 16px);
+  height: clamp(13px, 1.1vw, 16px);
+}
+
+.auth-input {
   width: 100%;
-  margin-bottom: 10px;
+  padding: clamp(8px, 0.7vw, 11px) clamp(10px, 1vw, 14px) clamp(8px, 0.7vw, 11px) clamp(30px, 2.5vw, 38px);
+  border: 1.5px solid var(--line);
+  border-radius: clamp(7px, 0.7vw, 10px);
+  font-size: clamp(13px, 1vw, 15px);
+  background: #f8fbfd;
+  color: var(--fg);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(14, 141, 170, 0.1);
+  background: #fff;
+}
+
+/* Password wrapper inside .auth-field */
+.auth-field .pw {
+  width: 100%;
+}
+
+.auth-field .pw input {
+  width: 100%;
+  padding: clamp(8px, 0.7vw, 11px) clamp(34px, 2.8vw, 42px) clamp(8px, 0.7vw, 11px) clamp(30px, 2.5vw, 38px);
+  border: 1.5px solid var(--line);
+  border-radius: clamp(7px, 0.7vw, 10px);
+  font-size: clamp(13px, 1vw, 15px);
+  background: #f8fbfd;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.auth-field .pw input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(14, 141, 170, 0.1);
+  background: #fff;
+}
+
+.auth-check {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(6px, 0.6vw, 9px);
+  font-size: clamp(11px, 0.9vw, 13px);
+  color: var(--muted);
+  margin-bottom: clamp(7px, 0.7vw, 10px);
+  cursor: pointer;
+  user-select: none;
+}
+
+.auth-check input[type="checkbox"] {
+  width: clamp(13px, 1.1vw, 16px);
+  height: clamp(13px, 1.1vw, 16px);
+  min-width: clamp(13px, 1.1vw, 16px);
+  margin-top: 2px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.auth-check a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-check a:hover {
+  text-decoration: underline;
+}
+
+.auth-err {
+  color: var(--danger);
+  font-size: clamp(11px, 0.9vw, 13px);
+  margin-bottom: clamp(6px, 0.6vw, 10px);
+  text-align: center;
+}
+
+.auth-btn {
+  width: 100%;
+  padding: clamp(9px, 0.9vw, 12px);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: #fff;
+  border: 0;
+  border-radius: clamp(7px, 0.7vw, 10px);
+  font-size: clamp(13px, 1.1vw, 15px);
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: clamp(2px, 0.3vw, 4px);
+  transition: opacity 0.15s, transform 0.1s;
+  letter-spacing: 0.01em;
+}
+
+.auth-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.auth-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 0.8vw, 12px);
+  margin: clamp(10px, 1vw, 16px) 0 clamp(8px, 0.8vw, 12px);
+  color: var(--muted);
+  font-size: clamp(10px, 0.85vw, 12px);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.auth-or::before,
+.auth-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-switch {
+  text-align: center;
+  font-size: clamp(11px, 0.9vw, 13px);
+  color: var(--muted);
+}
+
+.auth-link {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  font-size: clamp(11px, 0.9vw, 13px);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
 }
 
 /* Password field with show/hide eye toggle. */
@@ -259,44 +498,6 @@ th {
   color: var(--fg);
 }
 
-/* Terms & privacy consent row. */
-.terms {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 15px;
-  color: var(--muted);
-}
-
-.terms input {
-  width: auto;
-  margin-top: 2px;
-}
-
-.terms a {
-  color: var(--accent);
-}
-
-/* Footer link to switch between sign in / create account. */
-.auth-switch {
-  text-align: center;
-  color: var(--muted);
-  font-size: 15px;
-  margin-bottom: 0;
-}
-
-.linkbtn {
-  background: transparent;
-  border: 0;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 0;
-  font-size: 15px;
-}
-
-.linkbtn:hover {
-  text-decoration: underline;
-}
 
 /* ---- Sidebar + dashboard layout ---- */
 .app-layout {
@@ -306,7 +507,7 @@ th {
 }
 
 .sidebar {
-  width: 248px;
+  width: clamp(145px, 11.5vw, 185px);
   background: var(--sidebar);
   border-right: 1px solid var(--line);
   display: flex;
@@ -316,7 +517,7 @@ th {
 }
 
 .sidebar.collapsed {
-  width: 76px;
+  width: clamp(42px, 3.4vw, 56px);
 }
 
 /* ---- Brand ---- */
@@ -335,13 +536,13 @@ th {
 }
 
 .brand-logo-img {
-  height: 150px;
+  height: clamp(58px, 5.8vw, 90px);
   width: 100%;
   object-fit: contain;
 }
 
 .brand-name {
-  font-size: 21px;
+  font-size: clamp(12px, 1vw, 15px);
   font-weight: 800;
   color: var(--fg);
   letter-spacing: 0.01em;
@@ -386,7 +587,7 @@ th {
 }
 
 .sidebar-nav {
-  padding: 10px 10px;
+  padding: clamp(4px, 0.42vw, 7px);
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -396,15 +597,15 @@ th {
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: clamp(6px, 0.55vw, 9px);
   width: 100%;
-  padding: 11px 14px;
-  margin: 2px 0;
+  padding: clamp(5px, 0.48vw, 8px) clamp(7px, 0.65vw, 10px);
+  margin: 1px 0;
   background: transparent;
   border: 0;
-  border-radius: 10px;
+  border-radius: clamp(5px, 0.5vw, 8px);
   color: var(--fg);
-  font-size: 15px;
+  font-size: clamp(11px, 0.85vw, 13px);
   font-weight: 500;
   cursor: pointer;
   text-align: left;
@@ -434,15 +635,15 @@ th {
 .sidebar-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: clamp(6px, 0.55vw, 9px);
   width: 100%;
-  padding: 9px 12px;
-  margin: 2px 0 2px 10px;
+  padding: clamp(4px, 0.42vw, 7px) clamp(6px, 0.58vw, 9px);
+  margin: 1px 0 1px clamp(4px, 0.42vw, 7px);
   background: transparent;
   border: 0;
-  border-radius: 10px;
+  border-radius: clamp(5px, 0.5vw, 8px);
   color: var(--fg);
-  font-size: 15px;
+  font-size: clamp(11px, 0.85vw, 13px);
   font-weight: 500;
   cursor: pointer;
   text-align: left;
@@ -458,9 +659,9 @@ th {
 }
 
 .sidebar-group-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: clamp(18px, 1.45vw, 23px);
+  height: clamp(18px, 1.45vw, 23px);
+  border-radius: clamp(4px, 0.38vw, 6px);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -477,23 +678,23 @@ th {
 /* ---- Tree of leaf items (with guide line + bullets) ---- */
 .sidebar-tree {
   position: relative;
-  margin: 2px 0 6px 28px;
-  padding-left: 16px;
+  margin: 1px 0 clamp(3px, 0.3vw, 5px) clamp(14px, 1.3vw, 20px);
+  padding-left: clamp(8px, 0.72vw, 11px);
   border-left: 1.5px solid var(--line);
 }
 
 .sidebar-subitem2 {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: clamp(5px, 0.5vw, 8px);
   width: 100%;
-  padding: 8px 12px;
+  padding: clamp(4px, 0.36vw, 6px) clamp(6px, 0.58vw, 9px);
   margin: 1px 0;
   background: transparent;
   border: 0;
-  border-radius: 8px;
+  border-radius: clamp(4px, 0.38vw, 6px);
   color: var(--fg);
-  font-size: 14.5px;
+  font-size: clamp(10.5px, 0.8vw, 12px);
   cursor: pointer;
   text-align: left;
   transition: background 0.12s, color 0.12s;
@@ -520,13 +721,13 @@ th {
 
 /* ---- Footer ---- */
 .sidebar-foot {
-  padding: 10px;
+  padding: clamp(4px, 0.42vw, 7px);
   border-top: 1px solid var(--line);
 }
 
 .sidebar-user {
-  padding: 4px 14px 10px;
-  font-size: 14px;
+  padding: clamp(2px, 0.18vw, 3px) clamp(7px, 0.65vw, 10px) clamp(4px, 0.42vw, 7px);
+  font-size: clamp(10px, 0.75vw, 11.5px);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -557,11 +758,11 @@ th {
 
 .topbar {
   flex-shrink: 0;
-  padding: 22px 24px;
+  padding: clamp(8px, 0.75vw, 13px) clamp(12px, 1.1vw, 18px);
 }
 
 .topbar h1 {
-  font-size: 27px;
+  font-size: clamp(14px, 1.25vw, 18px);
   font-weight: 700;
   margin: 0;
 }
@@ -569,46 +770,46 @@ th {
 .app-body > main {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: clamp(10px, 0.95vw, 15px);
   max-width: none;
   margin: 0;
 }
 
 /* ---- Settings ---- */
 .settings-section {
-  margin-bottom: 28px;
+  margin-bottom: clamp(12px, 1.1vw, 18px);
 }
 
 .settings-section h3 {
-  font-size: 14px;
+  font-size: clamp(10px, 0.75vw, 11.5px);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin: 0 0 14px;
+  margin: 0 0 clamp(6px, 0.6vw, 9px);
 }
 
 .settings-row {
   display: flex;
   align-items: center;
-  padding: 10px 0;
-  font-size: 15px;
+  padding: clamp(4px, 0.42vw, 7px) 0;
+  font-size: clamp(11px, 0.85vw, 13px);
 }
 
 .settings-label {
   color: var(--muted);
-  width: 140px;
+  width: clamp(85px, 7.5vw, 120px);
   flex-shrink: 0;
 }
 
 .settings-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-width: 360px;
+  gap: clamp(5px, 0.48vw, 8px);
+  max-width: clamp(220px, 20vw, 300px);
 }
 
 .settings-form label {
-  font-size: 14px;
+  font-size: clamp(10px, 0.75vw, 11.5px);
   color: var(--muted);
   margin-bottom: -4px;
 }
@@ -639,7 +840,7 @@ th {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: clamp(8px, 0.8vw, 12px);
 }
 
 .cam-grid {
@@ -668,9 +869,9 @@ th {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 4px 10px;
+  padding: clamp(3px, 0.3vw, 4px) clamp(6px, 0.6vw, 10px);
   background: rgba(0, 0, 0, 0.55);
-  font-size: 14px;
+  font-size: clamp(11px, 0.85vw, 13px);
   color: #fff;
 }
 
@@ -690,10 +891,10 @@ th {
 .modal-box {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: clamp(8px, 0.8vw, 12px);
   width: 100%;
-  max-width: 480px;
-  margin: 16px;
+  max-width: clamp(320px, 32vw, 460px);
+  margin: clamp(10px, 1vw, 16px);
   box-shadow: var(--shadow-lg);
 }
 
@@ -701,12 +902,12 @@ th {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: clamp(10px, 0.95vw, 15px) clamp(13px, 1.2vw, 19px);
   border-bottom: 1px solid var(--line);
 }
 
 .modal-title {
-  font-size: 16px;
+  font-size: clamp(13px, 1.05vw, 15px);
   font-weight: 600;
   color: var(--fg);
 }
@@ -715,7 +916,7 @@ th {
   background: transparent;
   border: 0;
   color: var(--muted);
-  font-size: 18px;
+  font-size: clamp(14px, 1.1vw, 17px);
   padding: 2px 6px;
   cursor: pointer;
   line-height: 1;
@@ -728,10 +929,10 @@ th {
 }
 
 .modal-body {
-  padding: 20px;
+  padding: clamp(13px, 1.2vw, 18px);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: clamp(9px, 0.85vw, 13px);
 }
 
 .modal-field {
@@ -741,7 +942,7 @@ th {
 }
 
 .modal-field label {
-  font-size: 13px;
+  font-size: clamp(11px, 0.82vw, 12.5px);
   font-weight: 500;
   color: var(--muted);
   letter-spacing: 0.03em;
@@ -754,43 +955,113 @@ th {
 .modal-row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: clamp(8px, 0.75vw, 12px);
 }
 
 .modal-preview {
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 10px 12px;
+  padding: clamp(7px, 0.65vw, 10px) clamp(9px, 0.82vw, 12px);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
 .modal-preview-label {
-  font-size: 12px;
+  font-size: clamp(10px, 0.78vw, 12px);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
 }
 
 .modal-preview code {
-  font-size: 13px;
+  font-size: clamp(11px, 0.82vw, 13px);
   font-family: monospace;
   color: var(--accent);
   word-break: break-all;
 }
 
 .modal-hint {
-  font-size: 13px;
+  font-size: clamp(11px, 0.82vw, 13px);
   color: var(--muted);
   font-family: monospace;
 }
 
 .modal-actions {
   display: flex;
-  gap: 8px;
+  gap: clamp(5px, 0.5vw, 8px);
   padding-top: 4px;
+}
+
+.nvr-search-state {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  align-items: center;
+  min-height: 86px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line));
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(14, 141, 170, 0.09), rgba(255, 255, 255, 0.78)),
+    var(--panel);
+  overflow: hidden;
+}
+
+.nvr-search-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: nvr-spin 0.85s linear infinite;
+}
+
+.nvr-search-copy {
+  min-width: 0;
+}
+
+.nvr-search-title {
+  font-size: clamp(12px, 0.95vw, 14px);
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.nvr-search-subtitle {
+  margin-top: 2px;
+  font-size: clamp(11px, 0.82vw, 12.5px);
+  color: var(--muted);
+}
+
+.nvr-search-bar {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 10px;
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  overflow: hidden;
+}
+
+.nvr-search-bar span {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: nvr-scan 1.35s ease-in-out infinite;
+}
+
+@keyframes nvr-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes nvr-scan {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(260%); }
 }
 
 /* ---- Add Camera flow ---- */
@@ -798,9 +1069,9 @@ th {
 .cam-add-toggle {
   display: flex;
   gap: 0;
-  margin-bottom: 20px;
+  margin-bottom: clamp(10px, 1vw, 16px);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: clamp(5px, 0.5vw, 8px);
   overflow: hidden;
   width: fit-content;
 }
@@ -810,8 +1081,8 @@ th {
   border: 0;
   border-radius: 0;
   color: var(--muted);
-  padding: 8px 22px;
-  font-size: 15px;
+  padding: clamp(5px, 0.48vw, 7px) clamp(12px, 1.1vw, 18px);
+  font-size: clamp(11px, 0.85vw, 13px);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -833,22 +1104,39 @@ th {
 
 .cam-manual-btns {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: clamp(6px, 0.6vw, 10px);
+  margin-bottom: clamp(10px, 1vw, 16px);
   flex-wrap: wrap;
 }
 
 .cam-add-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 18px;
-  font-size: 15px;
+  gap: clamp(5px, 0.5vw, 8px);
+  padding: clamp(6px, 0.58vw, 9px) clamp(10px, 1vw, 15px);
+  font-size: clamp(11px, 0.85vw, 13px);
   font-weight: 500;
 }
 
 .cam-scan-wrap {
-  margin-bottom: 20px;
+  margin-bottom: clamp(10px, 1vw, 16px);
+}
+
+.cam-scan-fields {
+  display: flex;
+  gap: clamp(7px, 0.7vw, 12px);
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 4px;
+}
+
+.cam-scan-status {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.6vw, 10px);
+  margin-top: clamp(9px, 0.88vw, 14px);
+  font-size: clamp(11px, 0.85vw, 13px);
+  color: var(--muted);
 }
 
 .cam-scan-fields {
@@ -882,24 +1170,24 @@ th {
 .feature-section {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: clamp(5px, 0.5vw, 8px);
   overflow: hidden;
   transition: border-color 0.2s;
   box-shadow: var(--shadow);
-  margin-bottom: 12px;
+  margin-bottom: clamp(5px, 0.5vw, 8px);
 }
 
 .feature-section-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: clamp(6px, 0.58vw, 9px);
   width: 100%;
-  padding: 14px 16px;
+  padding: clamp(7px, 0.65vw, 10px) clamp(9px, 0.85vw, 13px);
   background: transparent;
   border: 0;
   border-radius: 0;
   color: var(--fg);
-  font-size: 16px;
+  font-size: clamp(11.5px, 0.9vw, 13.5px);
   font-weight: 600;
   cursor: pointer;
   text-align: left;
@@ -911,9 +1199,9 @@ th {
 }
 
 .feature-section-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  width: clamp(20px, 1.6vw, 25px);
+  height: clamp(20px, 1.6vw, 25px);
+  border-radius: clamp(4px, 0.38vw, 6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -921,28 +1209,28 @@ th {
 }
 
 .feature-section-label {
-  font-size: 16px;
+  font-size: clamp(11.5px, 0.9vw, 13.5px);
   font-weight: 600;
 }
 
 .feature-section-badge {
-  font-size: 13px;
+  font-size: clamp(10px, 0.75vw, 11.5px);
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 1px clamp(4px, 0.4vw, 6px);
   border-radius: 999px;
-  margin-left: 10px;
+  margin-left: clamp(5px, 0.48vw, 8px);
 }
 
 .feature-section-body {
   border-top: 1px solid var(--line);
-  padding: 4px 16px 8px;
+  padding: clamp(2px, 0.22vw, 3px) clamp(9px, 0.85vw, 13px) clamp(4px, 0.38vw, 6px);
 }
 
 .feature-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 11px 0;
+  padding: clamp(5px, 0.5vw, 8px) 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -951,15 +1239,15 @@ th {
 }
 
 .feature-item-label {
-  font-size: 15px;
+  font-size: clamp(11px, 0.85vw, 13px);
   color: var(--fg);
 }
 
 /* Toggle switch (reusable) */
 .feature-toggle {
   position: relative;
-  width: 40px;
-  height: 22px;
+  width: clamp(30px, 2.5vw, 38px);
+  height: clamp(17px, 1.4vw, 21px);
   border-radius: 999px;
   border: 0;
   padding: 0;
@@ -980,10 +1268,10 @@ th {
 
 .feature-toggle-thumb {
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 16px;
-  height: 16px;
+  top: clamp(2px, 0.22vw, 3px);
+  left: clamp(2px, 0.22vw, 3px);
+  width: clamp(12px, 1vw, 15px);
+  height: clamp(12px, 1vw, 15px);
   border-radius: 50%;
   background: #fff;
   transition: transform 0.2s;
@@ -991,7 +1279,7 @@ th {
 }
 
 .feature-toggle.on .feature-toggle-thumb {
-  transform: translateX(18px);
+  transform: translateX(clamp(13px, 1.05vw, 17px));
 }
 
 /* ---- Coming soon placeholder ---- */

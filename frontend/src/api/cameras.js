@@ -6,5 +6,10 @@ export const updateCamera = (id, fields)                => patchJson(`/cameras/$
 export const toggleCamera = (id)                        => patchJson(`/cameras/${id}/toggle`);
 export const deleteCamera = (id)                        => del("/cameras/" + id);
 
-export const scanNVR = (ip, port, username, password) =>
-  postJson("/nvr/scan", { ip, port: Number(port), username, password });
+export const discoverNVRs = ()                          => getJson("/nvr/discover");
+
+export const findNVRs = (username, password) =>
+  postJson("/nvr/find", { username, password });
+
+export const scanNVR = (ip, port, username, password, xaddr) =>
+  postJson("/nvr/scan", { ip, port: Number(port), username, password, xaddr });

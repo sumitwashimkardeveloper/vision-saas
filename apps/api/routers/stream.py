@@ -188,12 +188,72 @@ class DetectionThread:
 # Drawing helpers
 # ---------------------------------------------------------------------------
 
+_SHORT_PPE = {
+    "helmet_detection": "Helmet",
+    "vest_detection": "Vest",
+    "gloves_detection": "Gloves",
+    "goggles_detection": "Goggles",
+    "mask_detection": "Mask",
+}
+
+
 def _error_frame(text: str = "Camera unavailable") -> bytes:
     img = np.zeros((360, 640, 3), dtype=np.uint8)
     cv2.putText(img, text, (20, 190),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, (90, 90, 90), 2, cv2.LINE_AA)
     _, jpeg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 60])
     return jpeg.tobytes()
+
+
+def _estimate_body_bbox(
+    face_bbox: np.ndarray, frame_h: int, frame_w: int
+) -> tuple[int, int, int, int]:
+    """Expand a face bbox downward/sideways to approximate the person's body region."""
+    x1, y1, x2, y2 = face_bbox
+    face_w = x2 - x1
+    face_h = y2 - y1
+    bx1 = int(max(0, x1 - face_w * 0.6))
+    by1 = int(max(0, y1 - face_h * 0.3))
+    bx2 = int(min(frame_w, x2 + face_w * 0.6))
+    by2 = int(min(frame_h, y2 + face_h * 4.5))
+    return bx1, by1, bx2, by2
+
+
+def _assign_ppe_to_persons(
+    faces: list,
+    ppe_hits: list[PPEDetection],
+    frame_h: int,
+    frame_w: int,
+) -> dict[int, set[str]]:
+    """Return {person_index: set_of_detected_feature_keys}.
+
+    Each PPE detection is assigned to the person whose estimated body region
+    contains the detection centre. If multiple body regions overlap, the
+    nearest face centre wins.
+    """
+    person_ppe: dict[int, set[str]] = {i: set() for i in range(len(faces))}
+    body_regions = [_estimate_body_bbox(f.bbox, frame_h, frame_w) for f in faces]
+
+    for det in ppe_hits:
+        dx1, dy1, dx2, dy2 = det.bbox
+        det_cx = (dx1 + dx2) / 2
+        det_cy = (dy1 + dy2) / 2
+
+        best_idx: int | None = None
+        best_dist = float("inf")
+        for i, (bx1, by1, bx2, by2) in enumerate(body_regions):
+            if bx1 <= det_cx <= bx2 and by1 <= det_cy <= by2:
+                fcx = (faces[i].bbox[0] + faces[i].bbox[2]) / 2
+                fcy = (faces[i].bbox[1] + faces[i].bbox[3]) / 2
+                dist = (det_cx - fcx) ** 2 + (det_cy - fcy) ** 2
+                if dist < best_dist:
+                    best_dist = dist
+                    best_idx = i
+
+        if best_idx is not None:
+            person_ppe[best_idx].add(det.feature_key)
+
+    return person_ppe
 
 
 def _draw(
@@ -205,53 +265,50 @@ def _draw(
     enabled_keys: set[str],
     draw_faces: bool = True,
 ) -> None:
-    # --- Face boxes (only when face recognition is enabled) -----------------
-    if draw_faces:
-        for face in faces:
-            x1, y1, x2, y2 = (int(v) for v in face.bbox)
-            result = match(gallery, face.embedding, threshold)
-            color = (0, 210, 80) if result.is_match else (50, 50, 240)
-            label = f"{result.name}  {result.score:.2f}" if result.is_match else "unknown"
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.52, 1)
-            cv2.rectangle(frame, (x1, y1 - th - 10), (x1 + tw + 6, y1), color, cv2.FILLED)
-            cv2.putText(frame, label, (x1 + 3, y1 - 4),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.52, (255, 255, 255), 1, cv2.LINE_AA)
-
     if not faces:
-        return  # nothing to annotate for PPE if no person detected
+        return
 
-    # --- PPE boxes (green = detected) ---------------------------------------
-    detected_keys = {d.feature_key for d in ppe_hits}
-    for det in ppe_hits:
-        x1, y1, x2, y2 = (int(v) for v in det.bbox)
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 220, 60), 2)
-        tag = f"{det.label} {det.confidence:.2f}"
-        (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
-        cv2.rectangle(frame, (x1, y2), (x1 + tw + 6, y2 + th + 8), (0, 220, 60), cv2.FILLED)
-        cv2.putText(frame, tag, (x1 + 3, y2 + th + 2),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA)
+    h, w = frame.shape[:2]
+    run_ppe = bool(enabled_keys)
+    person_ppe = _assign_ppe_to_persons(faces, ppe_hits, h, w) if run_ppe else {}
 
-    # --- Missing PPE warning banner (red) -----------------------------------
-    # Map feature keys to short display names for the warning banner.
-    _SHORT = {
-        "helmet_detection": "Helmet",
-        "vest_detection": "Vest",
-        "gloves_detection": "Gloves",
-        "goggles_detection": "Goggles",
-        "mask_detection": "Mask",
-    }
-    missing = [_SHORT.get(k, k) for k in enabled_keys if k not in detected_keys]
-    if missing:
-        warning = "NO PPE: " + ", ".join(missing)
-        (tw, th), _ = cv2.getTextSize(warning, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-        # Semi-transparent red banner at the bottom of the frame
-        h, w = frame.shape[:2]
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (0, h - th - 20), (w, h), (0, 0, 200), cv2.FILLED)
-        cv2.addWeighted(overlay, 0.6, frame, 0.4, 0, frame)
-        cv2.putText(frame, warning, (10, h - 8),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
+    for i, face in enumerate(faces):
+        fx1, fy1, fx2, fy2 = (int(v) for v in face.bbox)
+
+        # --- Single color-coded body box per person (PPE compliance) --------
+        if run_ppe:
+            detected = person_ppe.get(i, set())
+            missing = enabled_keys - detected
+            bx1, by1, bx2, by2 = _estimate_body_bbox(face.bbox, h, w)
+
+            box_color = (0, 200, 60) if not missing else (0, 0, 220)  # green / red
+            cv2.rectangle(frame, (bx1, by1), (bx2, by2), box_color, 2)
+
+            status_label = (
+                "PPE OK"
+                if not missing
+                else "Missing: " + ", ".join(_SHORT_PPE.get(k, k) for k in sorted(missing))
+            )
+            (tw, th), _ = cv2.getTextSize(status_label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+            # Place label above the box; if it would clip the top, show it below instead.
+            if by1 - th - 8 >= 0:
+                lx1, ly1, lx2, ly2 = bx1, by1 - th - 8, bx1 + tw + 6, by1
+            else:
+                lx1, ly1, lx2, ly2 = bx1, by2, bx1 + tw + 6, by2 + th + 8
+            cv2.rectangle(frame, (lx1, ly1), (lx2, ly2), box_color, cv2.FILLED)
+            cv2.putText(frame, status_label, (lx1 + 3, ly2 - 4),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+
+        # --- Face recognition box (only when face recognition is enabled) ---
+        if draw_faces:
+            result = match(gallery, face.embedding, threshold)
+            face_color = (0, 210, 80) if result.is_match else (50, 50, 240)
+            label = f"{result.name}  {result.score:.2f}" if result.is_match else "unknown"
+            cv2.rectangle(frame, (fx1, fy1), (fx2, fy2), face_color, 2)
+            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.52, 1)
+            cv2.rectangle(frame, (fx1, fy1 - th - 10), (fx1 + tw + 6, fy1), face_color, cv2.FILLED)
+            cv2.putText(frame, label, (fx1 + 3, fy1 - 4),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.52, (255, 255, 255), 1, cv2.LINE_AA)
 
 
 # ---------------------------------------------------------------------------

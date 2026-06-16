@@ -2,6 +2,15 @@ import { useState } from "react";
 import { IconCamera, IconSettings, IconShield, IconLogout, IconChevron } from "./icons.jsx";
 import { FEATURE_GROUPS } from "../features/ppe/featuresDef.jsx";
 
+function IconBell({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+
 function IconHome({ size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -154,6 +163,15 @@ export default function Sidebar({ page, setPage, user, onLogout }) {
             </div>
           );
         })}
+
+        {/* Alerts */}
+        <button
+          className={"sidebar-item" + (page === "alerts" ? " active" : "")}
+          onClick={() => setPage("alerts")}
+        >
+          <IconBell size={18} />
+          <span className="nav-label">Alerts</span>
+        </button>
 
         {/* Settings */}
         <button

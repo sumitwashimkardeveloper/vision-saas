@@ -406,17 +406,18 @@ const DEFAULT_CFG = {
 };
 
 function LoadingUnloadingConfig({ accentColor }) {
-  const [cfg,          setCfg]          = useState(DEFAULT_CFG);
-  const [allCameras,   setAllCameras]   = useState([]);
-  const [poolInput,    setPoolInput]    = useState("");
-  const [showAdd,      setShowAdd]      = useState(false);
-  const [editingCamId, setEditingCamId] = useState(null);
-  const [liveCamera,   setLiveCamera]   = useState(null);
-  const [saving,       setSaving]       = useState(false);
-  const [saveErr,      setSaveErr]      = useState("");
-  const [confirmDel,   setConfirmDel]   = useState(null); // {type:"pool"|"camera", id, label}
-  const [tab,          setTab]          = useState("cameras"); // "features" | "cameras"
-  const [busyCam,      setBusyCam]      = useState(null);       // camera id being toggled
+  const [cfg,            setCfg]            = useState(DEFAULT_CFG);
+  const [allCameras,     setAllCameras]     = useState([]);
+  const [showAdd,        setShowAdd]        = useState(false);
+  const [showAddFeature, setShowAddFeature] = useState(false);
+  const [featureInput,   setFeatureInput]   = useState("");
+  const [editingCamId,   setEditingCamId]   = useState(null);
+  const [liveCamera,     setLiveCamera]     = useState(null);
+  const [saving,         setSaving]         = useState(false);
+  const [saveErr,        setSaveErr]        = useState("");
+  const [confirmDel,     setConfirmDel]     = useState(null); // {type:"pool"|"camera", id, label}
+  const [tab,            setTab]            = useState("cameras"); // "cameras" | "features"
+  const [busyCam,        setBusyCam]        = useState(null);
   const persistTimer = useRef(null);
 
   useEffect(() => {
@@ -453,13 +454,6 @@ function LoadingUnloadingConfig({ accentColor }) {
   // Ensures old preset-based configs are migrated cleanly on first new-UI write.
   function mergedPool(...extra) {
     return [...new Set([...objectPool, ...extra])];
-  }
-
-  function addToPool() {
-    const val = poolInput.trim().toLowerCase();
-    if (!val || objectPool.includes(val)) { setPoolInput(""); return; }
-    patch({ customs: mergedPool(val), presets: [], source: "custom" });
-    setPoolInput("");
   }
 
   function removeFromPool(name) {
@@ -539,8 +533,8 @@ function LoadingUnloadingConfig({ accentColor }) {
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         {[
-          { key: "features", label: `Features${objectPool.length ? ` (${objectPool.length})` : ""}` },
           { key: "cameras",  label: `Cameras${assignedCams.length ? ` (${assignedCams.length})` : ""}` },
+          { key: "features", label: `Features${objectPool.length ? ` (${objectPool.length})` : ""}` },
         ].map(t => {
           const on = tab === t.key;
           return (
@@ -562,47 +556,135 @@ function LoadingUnloadingConfig({ accentColor }) {
 
       {/* ── Features tab: object pool ────────────────────────────────────── */}
       {tab === "features" && (
-        <div style={S.card}>
-          <div style={S.cardHead}>
-            <span style={{ flex: 1 }}>Features to track</span>
-            <span style={{ fontSize: 12, fontWeight: 400, color: "var(--muted)", textTransform: "none" }}>
-              Objects you can assign to cameras
-            </span>
-          </div>
-          <div style={{ padding: 16 }}>
-            {objectPool.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-                {objectPool.map(name => (
-                  <span key={name} style={{ ...S.pill(accentColor), cursor: "default" }}>
-                    <span style={{ textTransform: "capitalize" }}>{name}</span>
+        <>
+          <div style={S.card}>
+            <div style={S.cardHead}>
+              <span style={{ flex: 1 }}>Objects to track</span>
+              <span style={{ fontSize: 12, fontWeight: 400, color: "var(--muted)", textTransform: "none", marginRight: 12 }}>
+                {objectPool.length} object{objectPool.length !== 1 ? "s" : ""}
+              </span>
+              <button
+                onClick={() => { setFeatureInput(""); setShowAddFeature(true); }}
+                style={{ ...S.btn(accentColor), fontSize: 13, padding: "4px 10px" }}
+              >
+                + Add Object
+              </button>
+            </div>
+
+            {objectPool.length === 0 ? (
+              <div style={{ padding: "32px 16px", textAlign: "center" }}>
+                <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 8 }}>
+                  No objects added yet.
+                </div>
+                <div style={{ fontSize: 13, color: "var(--muted)" }}>
+                  Add objects to track (e.g. carton, pallet, drum), then assign them to cameras.
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {objectPool.map((name, idx) => (
+                  <div key={name} style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "11px 16px",
+                    borderBottom: idx < objectPool.length - 1 ? "1px solid var(--line)" : "none",
+                  }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+                      background: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
+                      border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 13, fontWeight: 700, color: accentColor,
+                      textTransform: "uppercase",
+                    }}>
+                      {name[0]}
+                    </div>
+                    <span style={{ flex: 1, fontSize: 15, fontWeight: 500, textTransform: "capitalize" }}>
+                      {name}
+                    </span>
                     <button
                       onClick={() => setConfirmDel({ type: "pool", id: name, label: name })}
-                      style={{ background: "none", border: "none", color: accentColor, cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 15 }}
-                      title="Remove feature"
-                    >×</button>
-                  </span>
+                      style={{
+                        background: "transparent",
+                        border: "1px solid color-mix(in srgb, var(--danger) 28%, transparent)",
+                        color: "var(--danger)", borderRadius: 5,
+                        padding: "3px 10px", fontSize: 12, fontWeight: 500, cursor: "pointer",
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                style={S.input}
-                value={poolInput}
-                placeholder="Add a feature to track (e.g. carton, pallet…)"
-                onChange={e => setPoolInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addToPool()}
-              />
-              <button onClick={addToPool} style={S.btn(accentColor)}>+ Add</button>
-            </div>
-
-            {objectPool.length === 0 && (
-              <p style={{ margin: "10px 0 0", fontSize: 14, color: "var(--muted)" }}>
-                Add features here first, then assign them to cameras.
-              </p>
-            )}
           </div>
-        </div>
+
+          {/* Add Object modal */}
+          {showAddFeature && (
+            <div
+              style={{
+                position: "fixed", inset: 0, background: "var(--overlay)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                zIndex: 4000, backdropFilter: "blur(4px)", padding: 20,
+              }}
+              onClick={e => e.target === e.currentTarget && setShowAddFeature(false)}
+            >
+              <div style={{ ...S.modal, maxWidth: 380 }}>
+                <div style={S.modalHead}>Add Object to Track</div>
+                <div style={{ ...S.modalBody, gap: 12 }}>
+                  <p style={{ margin: 0, fontSize: 14, color: "var(--muted)" }}>
+                    Enter the name of the object you want to detect and count (e.g. carton, pallet, drum).
+                  </p>
+                  <input
+                    style={{ ...S.input, flex: "unset", width: "100%", fontSize: 15 }}
+                    value={featureInput}
+                    placeholder="e.g. carton, pallet, drum…"
+                    autoFocus
+                    onChange={e => setFeatureInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        const val = featureInput.trim().toLowerCase();
+                        if (val && !objectPool.includes(val)) {
+                          patch({ customs: mergedPool(val), presets: [], source: "custom" });
+                        }
+                        setShowAddFeature(false);
+                        setFeatureInput("");
+                      }
+                      if (e.key === "Escape") setShowAddFeature(false);
+                    }}
+                  />
+                  {featureInput && objectPool.includes(featureInput.trim().toLowerCase()) && (
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--warning)" }}>
+                      This object is already in the list.
+                    </p>
+                  )}
+                </div>
+                <div style={S.modalFoot}>
+                  <button onClick={() => setShowAddFeature(false)} style={S.btn("var(--muted)", true)}>
+                    Cancel
+                  </button>
+                  <button
+                    disabled={!featureInput.trim() || objectPool.includes(featureInput.trim().toLowerCase())}
+                    onClick={() => {
+                      const val = featureInput.trim().toLowerCase();
+                      if (val && !objectPool.includes(val)) {
+                        patch({ customs: mergedPool(val), presets: [], source: "custom" });
+                      }
+                      setShowAddFeature(false);
+                      setFeatureInput("");
+                    }}
+                    style={{
+                      ...S.btn(accentColor),
+                      opacity: !featureInput.trim() || objectPool.includes(featureInput.trim().toLowerCase()) ? 0.4 : 1,
+                      cursor: !featureInput.trim() || objectPool.includes(featureInput.trim().toLowerCase()) ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Add Object
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Cameras tab: assignment + start/stop/reset ───────────────────── */}

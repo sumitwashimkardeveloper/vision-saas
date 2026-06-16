@@ -75,7 +75,7 @@ loading:
   conf_threshold: 0.25
   iou_threshold: 0.45
   # "cuda" for NVIDIA GPU, "cpu" to force CPU, "auto" lets ultralytics pick.
-  device: cuda
+  device: auto
   # How often (seconds) the worker re-reads the loading config from DB.
   refresh_interval: 30.0
   # How often (seconds) the worker writes updated counts to disk.

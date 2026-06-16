@@ -65,11 +65,11 @@ function CameraInfo({ rtsp_url }) {
   if (info.isIP) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <div style={{ fontSize: 15, fontFamily: "monospace", color: "var(--fg)" }}>
+        <div style={{ fontSize: "clamp(11px,0.88vw,13.5px)", fontFamily: "monospace", color: "var(--fg)" }}>
           {info.host} <span style={{ color: "var(--muted)" }}>:{info.port}</span>
         </div>
         {info.username && (
-          <div style={{ fontSize: 13, color: "var(--muted)" }}>
+          <div style={{ fontSize: "clamp(10px,0.78vw,11.5px)", color: "var(--muted)" }}>
             User: {info.username} {info.hasPass ? "· Password: ••••••" : ""}
           </div>
         )}
@@ -77,7 +77,7 @@ function CameraInfo({ rtsp_url }) {
     );
   }
   return (
-    <span style={{ fontFamily: "monospace", fontSize: 13, color: "var(--muted)", wordBreak: "break-all" }}>
+    <span style={{ fontFamily: "monospace", fontSize: "clamp(10px,0.78vw,11.5px)", color: "var(--muted)", wordBreak: "break-all" }}>
       {rtsp_url}
     </span>
   );
@@ -89,7 +89,7 @@ function CameraType({ rtsp_url }) {
     <span className="tag" style={{
       background: info.isIP ? "rgba(79,140,255,0.1)" : "rgba(167,139,250,0.1)",
       color: info.isIP ? "var(--accent)" : "var(--accent-2)",
-      fontSize: 13,
+      fontSize: "clamp(10px,0.78vw,11.5px)",
     }}>
       {info.isIP ? "IP Camera" : "RTSP URL"}
     </span>
@@ -220,7 +220,7 @@ export default function AddCamera() {
                       <button
                         onClick={() => openEdit(cam)}
                         style={{
-                          padding: "4px 10px", fontSize: 14,
+                          padding: "clamp(3px,0.3vw,5px) clamp(6px,0.6vw,9px)", fontSize: "clamp(10.5px,0.82vw,12px)",
                           display: "flex", alignItems: "center", gap: 5,
                           background: "transparent",
                           border: "1px solid var(--line)",
@@ -233,7 +233,7 @@ export default function AddCamera() {
                       <button
                         onClick={() => toggle(cam.id)}
                         style={{
-                          padding: "4px 10px", fontSize: 14,
+                          padding: "clamp(3px,0.3vw,5px) clamp(6px,0.6vw,9px)", fontSize: "clamp(10.5px,0.82vw,12px)",
                           display: "flex", alignItems: "center", gap: 5,
                           background: cam.enabled ? "rgba(255,93,93,0.15)" : "rgba(34,197,94,0.15)",
                           border: `1px solid ${cam.enabled ? "var(--danger)" : "var(--success)"}`,

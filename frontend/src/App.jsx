@@ -7,6 +7,7 @@ import AddCamera from "./features/cameras/AddCamera.jsx";
 import ViewCamera from "./features/cameras/ViewCamera.jsx";
 import SettingsPage from "./features/settings/SettingsPage.jsx";
 import FeaturesPage from "./features/ppe/FeaturesPage.jsx";
+import AlertsPage from "./features/alerts/AlertsPage.jsx";
 import { getCameras } from "./api/cameras.js";
 
 function loadSession() {
@@ -76,6 +77,7 @@ export default function App() {
         const [, grp, key] = page.split("/");
         return <FeaturesPage group={grp} featureKey={key} />;
       })()}
+      {page === "alerts"      && <AlertsPage setPage={setPage} />}
       {page === "settings"    && <SettingsPage identity={session.identity} />}
     </AppLayout>
   );
