@@ -4,6 +4,27 @@ import { postJson, postForm } from "../../api/client.js";
 
 const SLOTS = ["Front", "Right", "Left"];
 
+const SLOT_LABELS = {
+  Front: "Front",
+  Right: "Right",
+  Left: "Left",
+};
+
+const SLOT_HELP = {
+  Front: "Look straight at the camera.",
+  Right: "Move your head left.",
+  Left: "Move your head right.",
+};
+
+const CATEGORY_OPTIONS = [
+  { value: "general", label: "General" },
+  { value: "staff", label: "Staff" },
+  { value: "vip", label: "VIP" },
+  { value: "blocked", label: "Blocked" },
+  { value: "security_staff", label: "Security Staff" },
+  { value: "management", label: "Management" },
+];
+
 function slugify(s) {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "person";
 }
@@ -49,6 +70,7 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
   const [lastName,  setLastName]  = useState("");
   const [email,     setEmail]     = useState("");
   const [gender,    setGender]    = useState("male");
+  const [category,  setCategory]  = useState("general");
   const [mode,      setMode]      = useState("upload");   // "upload" | "capture"
   const [photos,    setPhotos]    = useState({});         // slot → File
   const [previews,  setPreviews]  = useState({});         // slot → objectURL
@@ -98,7 +120,10 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
     const c = document.createElement("canvas");
     c.width  = v.videoWidth  || 640;
     c.height = v.videoHeight || 480;
-    c.getContext("2d").drawImage(v, 0, 0);
+    const ctx = c.getContext("2d");
+    ctx.translate(c.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(v, 0, 0, c.width, c.height);
     c.toBlob(blob => blob && setSlotPhoto(captureSlot, blob), "image/jpeg", 0.92);
   }
 
@@ -133,7 +158,7 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
     setBusy(true);
     try {
       setStep("Creating person…");
-      await postJson("/people", { external_key: key, name: fullName, role: null, details });
+      await postJson("/people", { external_key: key, name: fullName, category, role: null, details });
 
       for (const slot of SLOTS) {
         if (!photos[slot]) continue;
@@ -186,9 +211,18 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
           </div>
         </div>
 
+        <div className="modal-field">
+          <label>Category</label>
+          <select value={category} onChange={e => setCategory(e.target.value)}>
+            {CATEGORY_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Photo mode toggle */}
         <div className="modal-field">
-          <label>Photos (Front required, Right + Left improve accuracy)</label>
+          <label>Photos (Front required, left + right head turns improve accuracy)</label>
           <div className="cam-add-toggle" style={{ marginTop: 6 }}>
             <button type="button" className={"cam-toggle-btn" + (mode === "upload"  ? " active" : "")}
               onClick={() => { setMode("upload"); stopCamera(); }}>
@@ -250,14 +284,18 @@ export default function AddPersonModal({ onClose, onAdded, existingKeys = [] }) 
                         color: captureSlot === slot ? "#fff" : "var(--muted)",
                       }}
                       onClick={() => setCaptureSlot(slot)}>
-                      {previews[slot] ? "✓ " : ""}{slot}
+                      {previews[slot] ? "✓ " : ""}{SLOT_LABELS[slot]}
                     </button>
                   ))}
                 </div>
 
+                <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8, textAlign: "center" }}>
+                  {SLOT_HELP[captureSlot]}
+                </div>
+
                 <button type="button" style={{ width: "100%", marginBottom: 12, fontSize: 15 }}
                   onClick={captureFrame}>
-                  Capture {captureSlot} Photo
+                  Capture {SLOT_LABELS[captureSlot]} Photo
                 </button>
 
                 {/* Captured previews */}

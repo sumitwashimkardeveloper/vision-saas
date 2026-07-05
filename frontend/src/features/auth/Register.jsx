@@ -48,7 +48,7 @@ export default function Register({ onLogin, onSwitch }) {
       <div className="auth-dots" />
       <div className="auth-card">
         <div className="auth-logo">
-          <img src="/ui/assets/logo.webp" alt="GuardVision" className="auth-logo-img" />
+          <img src={`${import.meta.env.BASE_URL}assets/logo.webp`} alt="GuardVision" className="auth-logo-img" />
         </div>
         <h2 className="auth-title">Create Account</h2>
         <p className="auth-subtitle">Create your account to get started</p>

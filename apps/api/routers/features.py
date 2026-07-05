@@ -58,6 +58,7 @@ def toggle_feature(
     """Flip a feature's enabled flag. Takes effect within ~30 s in the running worker."""
     if feature_key not in _ALL_BY_KEY:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feature not found")
+    repo.ensure_features()
     feat_def = _ALL_BY_KEY[feature_key]
     db_feat = repo.toggle_feature(feature_key)
     if db_feat is None:
@@ -80,6 +81,7 @@ def set_feature_cameras(
     """Set the cameras a feature applies to. Empty list = inactive (no cameras)."""
     if feature_key not in _ALL_BY_KEY:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Feature not found")
+    repo.ensure_features()
     feat_def = _ALL_BY_KEY[feature_key]
     db_feat = repo.set_feature_cameras(feature_key, payload.camera_ids)
     if db_feat is None:

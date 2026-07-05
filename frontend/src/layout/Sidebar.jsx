@@ -1,15 +1,7 @@
 import { useState } from "react";
-import { IconCamera, IconSettings, IconShield, IconLogout, IconChevron } from "./icons.jsx";
-import { FEATURE_GROUPS } from "../features/ppe/featuresDef.jsx";
-
-function IconBell({ size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  );
-}
+import { useNavigate, useLocation } from "react-router-dom";
+import { IconCamera, IconEvents, IconPeople, IconSettings, IconShield, IconLogout, IconChevron, IconManagement, IconSafety } from "./icons.jsx";
+import { pageToPath, pathToPage } from "../nav.js";
 
 function IconHome({ size = 18 }) {
   return (
@@ -30,20 +22,20 @@ function BrandLogo() {
   );
 }
 
-function parseFeaturePage(page) {
-  const parts = page.startsWith("feat/") ? page.split("/") : [];
-  return { groupKey: parts[1] || null, featureKey: parts[2] || null };
-}
+export default function Sidebar({ user, onLogout }) {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const page = pathToPage(pathname);
+  const setPage = (p) => navigate(pageToPath(p));
 
-export default function Sidebar({ page, setPage, user, onLogout }) {
-  const { groupKey: activeGroupKey } = parseFeaturePage(page);
+  const isFeaturesSubPage  = pathname === "/features/add" || pathname === "/features/manage";
+  const isFeaturesActive   = pathname.startsWith("/features") && !isFeaturesSubPage;
+  const isMgmtActive       = pathname.startsWith("/management");
 
-  const [collapsed,    setCollapsed]    = useState(false);
-  const [cameraOpen,   setCameraOpen]   = useState(page === "camera-add" || page === "camera-live");
-  const [featuresOpen, setFeaturesOpen] = useState(page.startsWith("feat/"));
-  const [groupsOpen,   setGroupsOpen]   = useState(() =>
-    activeGroupKey ? { [activeGroupKey]: true } : {}
-  );
+  const [collapsed,      setCollapsed]      = useState(false);
+  const [cameraOpen,     setCameraOpen]     = useState(page === "camera-add" || page === "camera-live");
+  const [featuresOpen,   setFeaturesOpen]   = useState(isFeaturesActive);
+  const [mgmtOpen,       setMgmtOpen]       = useState(isMgmtActive);
 
   function goCamera(sub) {
     setCameraOpen(true);
@@ -54,12 +46,16 @@ export default function Sidebar({ page, setPage, user, onLogout }) {
     setCameraOpen(o => !o);
   }
 
-  function toggleGroup(key) {
-    setGroupsOpen(prev => ({ ...prev, [key]: !prev[key] }));
+  function goFeatures(sub) {
+    setFeaturesOpen(true);
+    navigate(sub);
   }
 
-  const isCameraActive   = page === "camera-add" || page === "camera-live";
-  const isFeaturesActive = page.startsWith("feat/");
+  function toggleFeatures() {
+    setFeaturesOpen(o => !o);
+  }
+
+  const isCameraActive = page === "camera-add" || page === "camera-live";
 
   return (
     <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
@@ -83,6 +79,15 @@ export default function Sidebar({ page, setPage, user, onLogout }) {
         >
           <IconHome size={18} />
           <span className="nav-label">Home</span>
+        </button>
+
+        {/* People */}
+        <button
+          className={"sidebar-item" + (page === "people" ? " active" : "")}
+          onClick={() => setPage("people")}
+        >
+          <IconPeople size={18} />
+          <span className="nav-label">People</span>
         </button>
 
         {/* Camera */}
@@ -115,10 +120,10 @@ export default function Sidebar({ page, setPage, user, onLogout }) {
           </div>
         )}
 
-        {/* Features — 3-level */}
+        {/* Features */}
         <button
           className={"sidebar-item" + (isFeaturesActive ? " active" : "")}
-          onClick={() => setFeaturesOpen(o => !o)}
+          onClick={toggleFeatures}
         >
           <IconShield size={18} />
           <span className="nav-label">Features</span>
@@ -126,51 +131,69 @@ export default function Sidebar({ page, setPage, user, onLogout }) {
             <IconChevron size={12} direction={featuresOpen ? "down" : "right"} />
           </span>
         </button>
+        {featuresOpen && !collapsed && (
+          <div className="sidebar-tree">
+            <button
+              className={"sidebar-subitem2" + (pathname === "/features/add" ? " active" : "")}
+              onClick={() => goFeatures("/features/add")}
+            >
+              <span className="tree-bullet" />
+              <span className="nav-label">Add Features</span>
+            </button>
+            <button
+              className={"sidebar-subitem2" + (pathname === "/features/manage" ? " active" : "")}
+              onClick={() => goFeatures("/features/manage")}
+            >
+              <span className="tree-bullet" />
+              <span className="nav-label">Manage Features</span>
+            </button>
+          </div>
+        )}
 
-        {featuresOpen && !collapsed && FEATURE_GROUPS.map(group => {
-          const isGroupActive = page.startsWith(`feat/${group.key}/`);
-          const isGroupOpen   = !!groupsOpen[group.key];
-
-          return (
-            <div key={group.key}>
-              {/* Group row */}
-              <button
-                className={"sidebar-group" + (isGroupOpen || isGroupActive ? " open" : "")}
-                onClick={() => toggleGroup(group.key)}
-              >
-                <span className="sidebar-group-icon">{group.icon}</span>
-                <span className="nav-label">{group.label}</span>
-                <span className="sidebar-chevron">
-                  <IconChevron size={11} direction={isGroupOpen ? "down" : "right"} />
-                </span>
-              </button>
-
-              {/* Feature rows */}
-              {isGroupOpen && (
-                <div className="sidebar-tree">
-                  {group.features.map(feat => (
-                    <button
-                      key={feat.key}
-                      className={"sidebar-subitem2" + (page === `feat/${group.key}/${feat.key}` ? " active" : "")}
-                      onClick={() => setPage(`feat/${group.key}/${feat.key}`)}
-                    >
-                      <span className="tree-bullet" />
-                      <span className="nav-label">{feat.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Alerts */}
+        {/* Management */}
         <button
-          className={"sidebar-item" + (page === "alerts" ? " active" : "")}
-          onClick={() => setPage("alerts")}
+          className={"sidebar-item" + (isMgmtActive ? " active" : "")}
+          onClick={() => setMgmtOpen(o => !o)}
         >
-          <IconBell size={18} />
-          <span className="nav-label">Alerts</span>
+          <IconManagement size={18} />
+          <span className="nav-label">Management</span>
+          <span className="sidebar-chevron">
+            <IconChevron size={12} direction={mgmtOpen ? "down" : "right"} />
+          </span>
+        </button>
+        {mgmtOpen && !collapsed && (
+          <div className="sidebar-tree">
+            <button
+              className={"sidebar-subitem2" + (pathname === "/management/attendance" ? " active" : "")}
+              onClick={() => navigate("/management/attendance")}
+            >
+              <span className="tree-bullet" />
+              <span className="nav-label">Attendance</span>
+            </button>
+            <button
+              className={"sidebar-subitem2" + (pathname === "/management/security" ? " active" : "")}
+              onClick={() => navigate("/management/security")}
+            >
+              <span className="tree-bullet" />
+              <span className="nav-label">Security</span>
+            </button>
+            <button
+              className={"sidebar-subitem2" + (pathname === "/management/safety" ? " active" : "")}
+              onClick={() => navigate("/management/safety")}
+            >
+              <span className="tree-bullet" />
+              <span className="nav-label">Safety</span>
+            </button>
+          </div>
+        )}
+
+        {/* Events */}
+        <button
+          className={"sidebar-item" + (page === "events" ? " active" : "")}
+          onClick={() => setPage("events")}
+        >
+          <IconEvents size={18} />
+          <span className="nav-label">Events</span>
         </button>
 
         {/* Settings */}

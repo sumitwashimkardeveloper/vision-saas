@@ -35,7 +35,8 @@ class RecognitionConfig:
     nms_thresh: float = 0.3
     # Cosine-similarity threshold for a positive ArcFace identity match (0..1).
     match_threshold: float = 0.38
-    # Whether to log faces that match nobody as "unknown" events.
+    # Legacy setting kept for config compatibility; unknown-face events are now
+    # a core Events record whenever face recognition is running.
     log_unknowns: bool = False
 
     @property
@@ -176,8 +177,11 @@ class AppConfig:
     def gallery_path(self, tenant_id: str) -> Path:
         return self.embeddings_dir(tenant_id) / "gallery.npz"
 
-    def snapshots_dir(self, tenant_id: str) -> Path:
-        return self.data_dir / "snapshots" / tenant_id
+    def snapshots_dir(self, tenant_id: str, camera_id: int | None = None) -> Path:
+        base = self.data_dir / "snapshots" / tenant_id
+        if camera_id is None:
+            return base / "cameras" / "unassigned"
+        return base / "cameras" / str(camera_id)
 
     def ensure_tenant_dirs(self, tenant_id: str) -> None:
         for path in (

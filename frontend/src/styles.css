@@ -39,7 +39,7 @@
 
 body {
   margin: 0;
-  font: clamp(11.5px, 0.85vw, 13px)/1.45 system-ui, "Segoe UI", Roboto, sans-serif;
+  font: clamp(13px, 0.95vw, 15px)/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--fg);
 }
@@ -71,7 +71,7 @@ button {
   border-radius: clamp(3px, 0.32vw, 5px);
   padding: clamp(3px, 0.32vw, 5px) clamp(6px, 0.58vw, 9px);
   cursor: pointer;
-  font-size: clamp(11px, 0.82vw, 12.5px);
+  font-size: clamp(13px, 0.95vw, 15px);
 }
 
 button.ghost {
@@ -96,7 +96,7 @@ select {
   color: var(--fg);
   border-radius: clamp(3px, 0.32vw, 5px);
   padding: clamp(3px, 0.32vw, 5px) clamp(5px, 0.48vw, 8px);
-  font-size: clamp(11px, 0.82vw, 12.5px);
+  font-size: clamp(13px, 0.95vw, 15px);
 }
 
 main {
@@ -108,15 +108,15 @@ main {
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: clamp(5px, 0.5vw, 8px);
-  padding: clamp(7px, 0.65vw, 10px);
-  margin-bottom: clamp(7px, 0.7vw, 11px);
+  border-radius: clamp(6px, 0.55vw, 10px);
+  padding: clamp(12px, 1vw, 18px);
+  margin-bottom: clamp(10px, 0.9vw, 16px);
   box-shadow: var(--shadow);
 }
 
 .panel h2 {
-  margin: 0 0 clamp(6px, 0.55vw, 9px);
-  font-size: clamp(11px, 0.82vw, 12.5px);
+  margin: 0 0 clamp(8px, 0.7vw, 12px);
+  font-size: clamp(12px, 0.9vw, 14px);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -143,7 +143,7 @@ td {
   text-align: left;
   padding: clamp(4px, 0.35vw, 6px) clamp(5px, 0.48vw, 8px);
   border-bottom: 1px solid var(--line);
-  font-size: clamp(11px, 0.82vw, 12.5px);
+  font-size: clamp(13px, 0.95vw, 15px);
   vertical-align: top;
 }
 
@@ -156,7 +156,7 @@ th {
   display: inline-block;
   padding: 1px clamp(5px, 0.48vw, 8px);
   border-radius: 999px;
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -299,7 +299,7 @@ th {
 }
 
 .auth-subtitle {
-  font-size: clamp(11px, 0.9vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   color: var(--muted);
   text-align: center;
   margin: 0 0 clamp(10px, 1vw, 16px);
@@ -371,7 +371,7 @@ th {
   display: flex;
   align-items: flex-start;
   gap: clamp(6px, 0.6vw, 9px);
-  font-size: clamp(11px, 0.9vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   color: var(--muted);
   margin-bottom: clamp(7px, 0.7vw, 10px);
   cursor: pointer;
@@ -400,7 +400,7 @@ th {
 
 .auth-err {
   color: var(--danger);
-  font-size: clamp(11px, 0.9vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   margin-bottom: clamp(6px, 0.6vw, 10px);
   text-align: center;
 }
@@ -452,7 +452,7 @@ th {
 
 .auth-switch {
   text-align: center;
-  font-size: clamp(11px, 0.9vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   color: var(--muted);
 }
 
@@ -460,7 +460,7 @@ th {
   background: transparent;
   border: 0;
   color: var(--accent);
-  font-size: clamp(11px, 0.9vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -507,7 +507,7 @@ th {
 }
 
 .sidebar {
-  width: clamp(145px, 11.5vw, 185px);
+  width: clamp(185px, 14.5vw, 240px);
   background: var(--sidebar);
   border-right: 1px solid var(--line);
   display: flex;
@@ -599,13 +599,13 @@ th {
   align-items: center;
   gap: clamp(6px, 0.55vw, 9px);
   width: 100%;
-  padding: clamp(5px, 0.48vw, 8px) clamp(7px, 0.65vw, 10px);
-  margin: 1px 0;
+  padding: clamp(8px, 0.7vw, 12px) clamp(7px, 0.65vw, 10px);
+  margin: 3px 0;
   background: transparent;
   border: 0;
   border-radius: clamp(5px, 0.5vw, 8px);
   color: var(--fg);
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(14px, 1.1vw, 17px);
   font-weight: 500;
   cursor: pointer;
   text-align: left;
@@ -643,7 +643,7 @@ th {
   border: 0;
   border-radius: clamp(5px, 0.5vw, 8px);
   color: var(--fg);
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   font-weight: 500;
   cursor: pointer;
   text-align: left;
@@ -688,13 +688,13 @@ th {
   align-items: center;
   gap: clamp(5px, 0.5vw, 8px);
   width: 100%;
-  padding: clamp(4px, 0.36vw, 6px) clamp(6px, 0.58vw, 9px);
-  margin: 1px 0;
+  padding: clamp(6px, 0.52vw, 9px) clamp(6px, 0.58vw, 9px);
+  margin: 2px 0;
   background: transparent;
   border: 0;
   border-radius: clamp(4px, 0.38vw, 6px);
   color: var(--fg);
-  font-size: clamp(10.5px, 0.8vw, 12px);
+  font-size: clamp(12px, 0.92vw, 14px);
   cursor: pointer;
   text-align: left;
   transition: background 0.12s, color 0.12s;
@@ -758,11 +758,11 @@ th {
 
 .topbar {
   flex-shrink: 0;
-  padding: clamp(8px, 0.75vw, 13px) clamp(12px, 1.1vw, 18px);
+  padding: clamp(14px, 1.2vw, 20px) clamp(16px, 1.4vw, 24px);
 }
 
 .topbar h1 {
-  font-size: clamp(14px, 1.25vw, 18px);
+  font-size: clamp(17px, 1.45vw, 22px);
   font-weight: 700;
   margin: 0;
 }
@@ -792,7 +792,7 @@ th {
   display: flex;
   align-items: center;
   padding: clamp(4px, 0.42vw, 7px) 0;
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
 }
 
 .settings-label {
@@ -871,7 +871,7 @@ th {
   right: 0;
   padding: clamp(3px, 0.3vw, 4px) clamp(6px, 0.6vw, 10px);
   background: rgba(0, 0, 0, 0.55);
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   color: #fff;
 }
 
@@ -942,7 +942,7 @@ th {
 }
 
 .modal-field label {
-  font-size: clamp(11px, 0.82vw, 12.5px);
+  font-size: clamp(13px, 0.95vw, 15px);
   font-weight: 500;
   color: var(--muted);
   letter-spacing: 0.03em;
@@ -976,14 +976,22 @@ th {
 }
 
 .modal-preview code {
-  font-size: clamp(11px, 0.82vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   font-family: monospace;
   color: var(--accent);
   word-break: break-all;
 }
 
+.camera-rtsp-preview code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
+
 .modal-hint {
-  font-size: clamp(11px, 0.82vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   color: var(--muted);
   font-family: monospace;
 }
@@ -1031,7 +1039,7 @@ th {
 
 .nvr-search-subtitle {
   margin-top: 2px;
-  font-size: clamp(11px, 0.82vw, 12.5px);
+  font-size: clamp(13px, 0.95vw, 15px);
   color: var(--muted);
 }
 
@@ -1082,7 +1090,7 @@ th {
   border-radius: 0;
   color: var(--muted);
   padding: clamp(5px, 0.48vw, 7px) clamp(12px, 1.1vw, 18px);
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -1114,8 +1122,118 @@ th {
   align-items: center;
   gap: clamp(5px, 0.5vw, 8px);
   padding: clamp(6px, 0.58vw, 9px) clamp(10px, 1vw, 15px);
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   font-weight: 500;
+}
+
+/* ---- Developer Events viewer ---- */
+.events-page {
+  min-width: 0;
+}
+
+.event-table-panel {
+  padding: 0;
+  overflow: auto;
+}
+
+.event-table {
+  min-width: 860px;
+}
+
+.event-table tbody tr {
+  cursor: pointer;
+}
+
+.event-table tbody tr:hover {
+  background: var(--hover);
+}
+
+.event-thumb {
+  width: 72px;
+  height: 44px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.event-thumb.empty {
+  font-family: monospace;
+}
+
+.event-modal {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: min(960px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-modal-body {
+  padding: 14px;
+  overflow: auto;
+}
+
+.event-snapshot-large {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.event-snapshot-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.event-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.event-detail-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.event-detail-value {
+  color: var(--fg);
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.event-json {
+  margin: 0;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--fg);
+  overflow: auto;
+  font-size: 12px;
 }
 
 .cam-scan-wrap {
@@ -1135,7 +1253,7 @@ th {
   align-items: center;
   gap: clamp(6px, 0.6vw, 10px);
   margin-top: clamp(9px, 0.88vw, 14px);
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   color: var(--muted);
 }
 
@@ -1239,7 +1357,7 @@ th {
 }
 
 .feature-item-label {
-  font-size: clamp(11px, 0.85vw, 13px);
+  font-size: clamp(13px, 0.95vw, 15px);
   color: var(--fg);
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import { setToken, setUnauthorizedHandler } from "./api/client.js";
 import Login from "./features/auth/Login.jsx";
 import Register from "./features/auth/Register.jsx";
@@ -7,7 +8,13 @@ import AddCamera from "./features/cameras/AddCamera.jsx";
 import ViewCamera from "./features/cameras/ViewCamera.jsx";
 import SettingsPage from "./features/settings/SettingsPage.jsx";
 import FeaturesPage from "./features/ppe/FeaturesPage.jsx";
-import AlertsPage from "./features/alerts/AlertsPage.jsx";
+import AddFeaturesPage from "./features/ppe/AddFeaturesPage.jsx";
+import ManageFeaturesPage from "./features/ppe/ManageFeaturesPage.jsx";
+import PeoplePage from "./features/people/PeoplePage.jsx";
+import EventsPage from "./features/events/EventsPage.jsx";
+import AttendancePage from "./features/management/AttendancePage.jsx";
+import SecurityPage from "./features/management/SecurityPage.jsx";
+import SafetyPage   from "./features/management/SafetyPage.jsx";
 import { getCameras } from "./api/cameras.js";
 
 function loadSession() {
@@ -41,10 +48,15 @@ function HomePage() {
   );
 }
 
+// Reads the /features/:group/:feature URL params and renders the feature page.
+function FeatureRoute() {
+  const { group, feature } = useParams();
+  return <FeaturesPage group={group} featureKey={feature} />;
+}
+
 export default function App() {
-  const [session, setSession]   = useState(loadSession);
-  const [authMode, setAuthMode] = useState("login");
-  const [page, setPage]         = useState("home");
+  const [session, setSession] = useState(loadSession);
+  const navigate = useNavigate();
 
   function handleLogout() {
     localStorage.removeItem("vfr_token");
@@ -62,23 +74,38 @@ export default function App() {
     setSession({ token: accessToken, identity });
   }
 
+  // Logged out: only the auth screens exist; everything else redirects to /login.
   if (!session) {
-    return authMode === "register"
-      ? <Register onLogin={handleLogin} onSwitch={() => setAuthMode("login")} />
-      : <Login    onLogin={handleLogin} onSwitch={() => setAuthMode("register")} />;
+    return (
+      <Routes>
+        <Route path="/login"    element={<Login    onLogin={handleLogin} onSwitch={() => navigate("/register")} />} />
+        <Route path="/register" element={<Register onLogin={handleLogin} onSwitch={() => navigate("/login")} />} />
+        <Route path="*"         element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
   }
 
+  // Logged in: the dashboard layout wraps every screen as nested routes.
   return (
-    <AppLayout page={page} setPage={setPage} user={session.identity} onLogout={handleLogout}>
-{page === "home"        && <HomePage />}
-      {page === "camera-add"  && <AddCamera onAdded={() => {}} />}
-      {page === "camera-live" && <ViewCamera />}
-      {page.startsWith("feat/") && (() => {
-        const [, grp, key] = page.split("/");
-        return <FeaturesPage group={grp} featureKey={key} />;
-      })()}
-      {page === "alerts"      && <AlertsPage setPage={setPage} />}
-      {page === "settings"    && <SettingsPage identity={session.identity} />}
-    </AppLayout>
+    <Routes>
+      <Route element={<AppLayout user={session.identity} onLogout={handleLogout} />}>
+        <Route path="/"                          element={<HomePage />} />
+        <Route path="/cameras/add"               element={<AddCamera onAdded={() => {}} />} />
+        <Route path="/cameras/live"              element={<ViewCamera />} />
+        <Route path="/people"                    element={<PeoplePage />} />
+        <Route path="/features/add"              element={<AddFeaturesPage />} />
+        <Route path="/features/manage"           element={<ManageFeaturesPage />} />
+        <Route path="/features/:group/:feature"  element={<FeatureRoute />} />
+        <Route path="/events"                        element={<EventsPage />} />
+        <Route path="/management/attendance"         element={<AttendancePage />} />
+        <Route path="/management/security"           element={<SecurityPage />} />
+        <Route path="/management/safety"             element={<SafetyPage />} />
+        <Route path="/settings"                      element={<SettingsPage identity={session.identity} />} />
+        {/* Visiting the auth URLs while logged in goes home. */}
+        <Route path="/login"    element={<Navigate to="/" replace />} />
+        <Route path="/register" element={<Navigate to="/" replace />} />
+        <Route path="*"         element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   );
 }

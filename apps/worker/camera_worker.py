@@ -112,15 +112,24 @@ class CameraWorker(threading.Thread):
             return
 
         # Save one snapshot shared across all violation events for this frame.
-        snapshot_path = save_snapshot(self.config, self.tenant_id, frame, "ppe_violation")
+        snapshot_path = save_snapshot(
+            self.config,
+            self.tenant_id,
+            frame,
+            "ppe_violation",
+            camera_id=self.camera_id,
+        )
 
         for key in missing:
             event = MatchEvent(
                 tenant_id=self.tenant_id,
                 label=f"ppe_violation:{key}",
                 score=1.0,
+                event_type="ppe_violation",
+                feature_type=key,
                 camera_id=self.camera_id,
                 snapshot_path=snapshot_path,
+                details={"missing_feature": key},
             )
             if self.event_sink is not None:
                 self.event_sink(event)
@@ -203,18 +212,26 @@ class CameraWorker(threading.Thread):
                 if self._face_recognition_enabled:
                     for face in faces:
                         result = match(self.gallery, face.embedding, rec.match_threshold)
-                        if not result.is_match and not rec.log_unknowns:
-                            continue
                         snapshot_path = save_snapshot(
-                            self.config, self.tenant_id, frame, result.name
+                            self.config,
+                            self.tenant_id,
+                            frame,
+                            result.name,
+                            camera_id=self.camera_id,
                         )
                         event = MatchEvent(
                             tenant_id=self.tenant_id,
                             label=result.name,
                             score=result.score,
+                            event_type="face_recognition" if result.is_match else "unknown_face",
+                            feature_type="face_recognition",
                             camera_id=self.camera_id,
                             person_key=result.key,
                             snapshot_path=snapshot_path,
+                            details={
+                                "face_detection_score": face.det_score,
+                                "matched": result.is_match,
+                            },
                         )
                         if self.event_sink is not None:
                             self.event_sink(event)

@@ -13,7 +13,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from apps.api.deps import get_config
@@ -65,5 +64,5 @@ app.mount("/ui", StaticFiles(directory=str(_STATIC_DIR), html=True), name="ui")
 
 
 @app.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
-    return RedirectResponse(url="/ui/")
+def root() -> dict:
+    return {"status": "ok", "service": app.title, "version": app.version, "docs": "/docs"}

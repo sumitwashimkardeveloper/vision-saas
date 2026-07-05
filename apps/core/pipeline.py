@@ -23,15 +23,19 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MatchEvent:
-    """A recognition result ready to be persisted. Decoupled from the DB session
+    """A detection event ready to be persisted. Decoupled from the DB session
     so it can be queued and written in batches (Phase 4 EventBatcher)."""
 
     tenant_id: str
     label: str
     score: float
+    event_type: str = "face_recognition"
+    feature_type: str = "face_recognition"
     camera_id: int | None = None
     person_key: str | None = None      # resolved to person_id at write time
+    object_label: str | None = None
     snapshot_path: str | None = None
+    details: dict | None = None
 
 
 def persist_event(session: Session, event: MatchEvent) -> None:
@@ -47,6 +51,10 @@ def persist_event(session: Session, event: MatchEvent) -> None:
         camera_id=event.camera_id,
         person_id=person_id,
         snapshot_path=event.snapshot_path,
+        event_type=event.event_type,
+        feature_type=event.feature_type,
+        object_label=event.object_label,
+        details=event.details,
     )
 
 
@@ -61,12 +69,20 @@ def _timestamp_slug() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
 
 
-def save_snapshot(config: AppConfig, tenant_id: str, frame: np.ndarray, label: str) -> str | None:
+def save_snapshot(
+    config: AppConfig,
+    tenant_id: str,
+    frame: np.ndarray,
+    label: str,
+    camera_id: int | None = None,
+) -> str | None:
     """Persist a snapshot frame, returning a path relative to the data dir."""
     config.ensure_tenant_dirs(tenant_id)
     safe_label = "".join(c if c.isalnum() or c in "-_" else "_" for c in label) or "unknown"
     filename = f"{_timestamp_slug()}_{safe_label}.jpg"
-    abs_path = config.snapshots_dir(tenant_id) / filename
+    snap_dir = config.snapshots_dir(tenant_id, camera_id)
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    abs_path = snap_dir / filename
     if not cv2.imwrite(str(abs_path), frame):
         logger.warning("[%s] failed to write snapshot %s", tenant_id, abs_path)
         return None
@@ -92,7 +108,7 @@ def record_match(
         person_id = person.id if person else None
 
     snapshot_path = (
-        save_snapshot(config, repo.tenant_id, frame, result.name)
+        save_snapshot(config, repo.tenant_id, frame, result.name, camera_id=camera_id)
         if save_snapshot_image
         else None
     )
@@ -102,6 +118,9 @@ def record_match(
         camera_id=camera_id,
         person_id=person_id,
         snapshot_path=snapshot_path,
+        event_type="face_recognition" if result.is_match else "unknown_face",
+        feature_type="face_recognition",
+        details={"person_key": result.key} if result.key else None,
     )
     logger.info(
         "[%s] event: %s (score=%.3f, camera=%s)",

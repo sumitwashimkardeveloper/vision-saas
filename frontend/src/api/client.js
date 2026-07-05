@@ -32,7 +32,7 @@ async function request(path, opts = {}) {
 }
 
 export async function getJson(path) {
-  const res = await request(path);
+  const res = await request(path, { cache: "no-store" });
   if (!res.ok) throw new Error(await extractError(res));
   return res.json();
 }
@@ -86,7 +86,7 @@ export async function del(path) {
 }
 
 export async function getBlob(path) {
-  const res = await request(path);
+  const res = await request(path, { cache: "no-store" });
   if (!res.ok) throw new Error(await extractError(res));
   return res.blob();
 }

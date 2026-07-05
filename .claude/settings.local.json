@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(ls -la /home/srw/Desktop/Job/Resume 2>/dev/null)",
+      "Read(//home/srw/Desktop/Job/Resume/**)"
     ]
   }
 }

@@ -104,6 +104,25 @@ def ensure_schema(config: AppConfig) -> None:
                 with engine.connect() as conn:
                     conn.execute(_text("ALTER TABLE tenant_features ADD COLUMN camera_ids TEXT"))
                     conn.commit()
+        if inspector.has_table("people"):
+            people_cols = {c["name"] for c in inspector.get_columns("people")}
+            if "category" not in people_cols:
+                with engine.connect() as conn:
+                    conn.execute(_text("ALTER TABLE people ADD COLUMN category VARCHAR(32) NOT NULL DEFAULT 'general'"))
+                    conn.commit()
+        if inspector.has_table("events"):
+            event_cols = {c["name"] for c in inspector.get_columns("events")}
+            event_alters = {
+                "event_type": "ALTER TABLE events ADD COLUMN event_type VARCHAR(64) NOT NULL DEFAULT 'face_recognition'",
+                "feature_type": "ALTER TABLE events ADD COLUMN feature_type VARCHAR(64) NOT NULL DEFAULT 'face_recognition'",
+                "object_label": "ALTER TABLE events ADD COLUMN object_label VARCHAR(255)",
+                "details_json": "ALTER TABLE events ADD COLUMN details_json TEXT",
+            }
+            for col, ddl in event_alters.items():
+                if col not in event_cols:
+                    with engine.connect() as conn:
+                        conn.execute(_text(ddl))
+                        conn.commit()
         return
 
     from .config import PROJECT_ROOT  # local import avoids any import cycle

@@ -4,7 +4,7 @@ from .auth import (
     ChangePasswordRequest, UserOut, TenantOut, TenantSummaryOut,
 )
 from .cameras import CameraCreate, CameraOut, CameraUpdate
-from .people import PersonCreate, PersonOut, GalleryRebuildResult
+from .people import PersonCreate, PersonOut, PersonUpdate, GalleryRebuildResult
 from .events import EventOut
 from .common import MessageResult
 from .features import FeatureCamerasIn, FeatureOut
@@ -14,7 +14,7 @@ __all__ = [
     "LoginRequest", "RegisterRequest", "TokenResponse",
     "ChangePasswordRequest", "UserOut", "TenantOut", "TenantSummaryOut",
     "CameraCreate", "CameraOut", "CameraUpdate",
-    "PersonCreate", "PersonOut", "GalleryRebuildResult",
+    "PersonCreate", "PersonOut", "PersonUpdate", "GalleryRebuildResult",
     "EventOut",
     "MessageResult",
     "FeatureOut", "FeatureCamerasIn",

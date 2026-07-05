@@ -1,12 +1,19 @@
+import { useLocation } from "react-router-dom";
 import { FEATURE_GROUPS } from "../features/ppe/featuresDef.jsx";
+import { pathToPage } from "../nav.js";
 
 const PAGE_TITLE = {
-  home:          "Home",
-  "camera-add":  "Add Camera",
-  "camera-live": "Live Camera",
-  people:        "People",
-  alerts:        "Alerts",
-  settings:      "Settings",
+  home:                     "Home",
+  "camera-add":             "Add Camera",
+  "camera-live":            "Live Camera",
+  people:                   "People",
+  "features-add":           "Add Features",
+  "features-manage":        "Manage Features",
+  "management-attendance":  "Attendance",
+  "management-security":    "Security",
+  "management-safety":      "Safety",
+  events:                   "Events",
+  settings:                 "Settings",
 };
 
 function getTitle(page) {
@@ -22,7 +29,8 @@ function getTitle(page) {
   return PAGE_TITLE[page] ?? page;
 }
 
-export default function Topbar({ page, user }) {
+export default function Topbar({ user }) {
+  const page = pathToPage(useLocation().pathname);
   const initial = (user?.username || "?").trim().charAt(0).toUpperCase();
   return (
     <div

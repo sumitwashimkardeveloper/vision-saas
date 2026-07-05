@@ -1,13 +1,46 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// The app is served by FastAPI under /ui, so assets resolve from that base.
-// `npm run build` emits straight into apps/api/static (what FastAPI mounts).
-const API_PREFIXES = ["/auth", "/cameras", "/people", "/events", "/tenant", "/health", "/config", "/worker", "/stream"];
+// Frontend runs standalone on its own dev server; API calls are proxied to FastAPI.
+// `npm run build` emits straight into apps/api/static.
+const API_PREFIXES = ["/auth", "/cameras", "/features", "/people", "/events", "/tenant", "/health", "/config", "/worker", "/stream"];
+
+function isAppRoute(pathname) {
+  return (
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/people" ||
+    pathname === "/events" ||
+    pathname === "/alerts" ||
+    pathname === "/settings" ||
+    pathname === "/cameras/add" ||
+    pathname === "/cameras/live" ||
+    pathname === "/features/add" ||
+    pathname === "/features/manage" ||
+    /^\/features\/[^/]+\/[^/]+$/.test(pathname)
+  );
+}
+
+function spaFallbackForAppRoutes() {
+  return {
+    name: "guardvision-spa-route-fallback",
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const acceptsHtml = req.headers.accept?.includes("text/html");
+        const pathname = (req.url || "").split("?")[0];
+        if (req.method === "GET" && acceptsHtml && isAppRoute(pathname)) {
+          req.url = "/";
+        }
+        next();
+      });
+    },
+  };
+}
 
 export default defineConfig({
-  base: "/ui/",
-  plugins: [react()],
+  base: "/",
+  plugins: [spaFallbackForAppRoutes(), react()],
   server: {
     port: 5173,
     // During `npm run dev`, proxy API calls to the FastAPI backend on :8000.

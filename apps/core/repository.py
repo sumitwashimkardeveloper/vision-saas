@@ -8,6 +8,7 @@ Do not query Camera/Person/Event directly elsewhere — go through here.
 
 from __future__ import annotations
 
+import json
 from typing import Sequence
 
 from sqlalchemy import select
@@ -37,7 +38,12 @@ class TenantRepository:
         return self.session.scalars(stmt).first()
 
     def upsert_person(
-        self, external_key: str, name: str, role: str | None = None, details: str | None = None
+        self,
+        external_key: str,
+        name: str,
+        category: str = "general",
+        role: str | None = None,
+        details: str | None = None,
     ) -> Person:
         person = self.get_person_by_key(external_key)
         if person is None:
@@ -45,12 +51,14 @@ class TenantRepository:
                 tenant_id=self.tenant_id,
                 external_key=external_key,
                 name=name,
+                category=category,
                 role=role,
                 details=details,
             )
             self.session.add(person)
         else:
             person.name = name
+            person.category = category
             person.role = role
             person.details = details
         self.session.flush()
@@ -97,6 +105,13 @@ class TenantRepository:
         person = self.get_person_by_key(external_key)
         if person is None:
             return False
+        for event in self.session.scalars(
+            select(Event).where(
+                Event.tenant_id == self.tenant_id,
+                Event.person_id == person.id,
+            )
+        ):
+            event.person_id = None
         self.session.delete(person)
         self.session.flush()
         return True
@@ -262,18 +277,39 @@ class TenantRepository:
         camera_id: int | None = None,
         person_id: int | None = None,
         snapshot_path: str | None = None,
+        event_type: str = "face_recognition",
+        feature_type: str = "face_recognition",
+        object_label: str | None = None,
+        details: dict | None = None,
     ) -> Event:
+        if camera_id is not None and self.get_camera(camera_id) is None:
+            camera_id = None
+        if person_id is not None:
+            person = self.session.get(Person, person_id)
+            if person is None or person.tenant_id != self.tenant_id:
+                person_id = None
         event = Event(
             tenant_id=self.tenant_id,
             camera_id=camera_id,
             person_id=person_id,
+            event_type=event_type,
+            feature_type=feature_type,
             label=label,
+            object_label=object_label,
             score=score,
             snapshot_path=snapshot_path,
+            details_json=json.dumps(details) if details else None,
         )
         self.session.add(event)
         self.session.flush()
         return event
+
+    def get_event(self, event_id: int) -> Event | None:
+        stmt = select(Event).where(
+            Event.tenant_id == self.tenant_id,
+            Event.id == event_id,
+        )
+        return self.session.scalars(stmt).first()
 
     def list_events(self, limit: int = 100) -> Sequence[Event]:
         stmt = (
@@ -287,6 +323,8 @@ class TenantRepository:
     def search_events(
         self,
         label: str | None = None,
+        event_type: str | None = None,
+        feature_type: str | None = None,
         camera_id: int | None = None,
         person_id: int | None = None,
         since: "datetime | None" = None,
@@ -297,6 +335,10 @@ class TenantRepository:
         stmt = select(Event).where(Event.tenant_id == self.tenant_id)
         if label:
             stmt = stmt.where(Event.label.ilike(f"%{label}%"))
+        if event_type:
+            stmt = stmt.where(Event.event_type == event_type)
+        if feature_type:
+            stmt = stmt.where(Event.feature_type == feature_type)
         if camera_id is not None:
             stmt = stmt.where(Event.camera_id == camera_id)
         if person_id is not None:

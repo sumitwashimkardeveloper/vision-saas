@@ -71,6 +71,7 @@ class Camera(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     tenant: Mapped[Tenant] = relationship(back_populates="cameras")
+    events: Mapped[list["Event"]] = relationship(back_populates="camera")
 
     __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_camera_tenant_name"),)
 
@@ -83,12 +84,13 @@ class Person(Base):
     # Stable slug matching the person's folder under data/tenants/<t>/people/<key>.
     external_key: Mapped[str] = mapped_column(String(128))
     name: Mapped[str] = mapped_column(String(255))
+    category: Mapped[str] = mapped_column(String(32), default="general")
     role: Mapped[str | None] = mapped_column(String(255), nullable=True)
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     tenant: Mapped[Tenant] = relationship(back_populates="people")
-    events: Mapped[list["Event"]] = relationship(back_populates="person")
+    events: Mapped[list["Event"]] = relationship(back_populates="person", passive_deletes=True)
 
     __table_args__ = (UniqueConstraint("tenant_id", "external_key", name="uq_person_tenant_key"),)
 
@@ -100,14 +102,51 @@ class Event(Base):
     tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
     camera_id: Mapped[int | None] = mapped_column(ForeignKey("cameras.id", ondelete="SET NULL"), nullable=True)
     person_id: Mapped[int | None] = mapped_column(ForeignKey("people.id", ondelete="SET NULL"), nullable=True)
-    # Denormalized label so events stay readable even if a person is later deleted.
+    event_type: Mapped[str] = mapped_column(String(64), default="face_recognition", index=True)
+    feature_type: Mapped[str] = mapped_column(String(64), default="face_recognition", index=True)
+    # Denormalized labels so events stay readable even if related rows are deleted.
     label: Mapped[str] = mapped_column(String(255))
+    object_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     score: Mapped[float] = mapped_column(Float)
     snapshot_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
 
     tenant: Mapped[Tenant] = relationship(back_populates="events")
+    camera: Mapped[Camera | None] = relationship(back_populates="events")
     person: Mapped[Person | None] = relationship(back_populates="events")
+
+    @property
+    def confidence(self) -> float:
+        return self.score
+
+    @property
+    def has_snapshot(self) -> bool:
+        return bool(self.snapshot_path)
+
+    @property
+    def snapshot_url(self) -> str | None:
+        return f"/events/{self.id}/snapshot" if self.snapshot_path else None
+
+    @property
+    def camera_name(self) -> str | None:
+        return self.camera.name if self.camera else None
+
+    @property
+    def person_name(self) -> str | None:
+        return self.person.name if self.person else None
+
+    @property
+    def details(self) -> dict | None:
+        if not self.details_json:
+            return None
+        import json
+
+        try:
+            parsed = json.loads(self.details_json)
+        except (TypeError, ValueError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
 
 
 class TenantFeature(Base):

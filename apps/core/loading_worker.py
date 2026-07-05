@@ -34,6 +34,8 @@ from apps.core.config import AppConfig
 from apps.core.db import session_scope
 from apps.core.frame_buffer import get_buffer
 from apps.core.loading_detector import LoadingDetection, LoadingDetector, resolve_class_names
+from apps.core.pipeline import save_snapshot
+from apps.core.repository import TenantRepository
 
 logger = logging.getLogger("loading_worker")
 
@@ -159,7 +161,32 @@ class LoadingCameraThread(threading.Thread):
         _write_counts_file(self.config, self.tenant_id, self.camera_id, {}, {}, None)
         logger.info("[%s] reset counts → camera %s", self.tenant_id, self.camera_id)
 
-    def _process(self, detections) -> None:
+    def _record_loading_event(self, label: str, track_id: int, total: int, frame, score: float) -> None:
+        snapshot_path = save_snapshot(
+            self.config,
+            self.tenant_id,
+            frame,
+            f"loading_{label}",
+            camera_id=self.camera_id,
+        )
+        with session_scope(self.config) as session:
+            repo = TenantRepository(session, self.tenant_id)
+            repo.add_event(
+                label=f"loaded:{label}",
+                score=score,
+                camera_id=self.camera_id,
+                snapshot_path=snapshot_path,
+                event_type="loading_count",
+                feature_type="loading_unloading",
+                object_label=label,
+                details={
+                    "track_id": track_id,
+                    "loaded_count": total,
+                    "mode": _MODE,
+                },
+            )
+
+    def _process(self, detections, frame) -> None:
         """Update track memory + counts from one frame's detections."""
         active_ids: set[int] = set()
         visible: dict[str, int] = {}
@@ -172,12 +199,17 @@ class LoadingCameraThread(threading.Thread):
             mem = self._tracks.get(det.track_id)
             if mem is None:
                 self._tracks[det.track_id] = {
-                    "label": det.label, "seen": 1, "missing": 0, "counted": False,
+                    "label": det.label,
+                    "confidence": det.confidence,
+                    "seen": 1,
+                    "missing": 0,
+                    "counted": False,
                 }
             else:
                 mem["seen"] += 1
                 mem["missing"] = 0
                 mem["label"] = det.label  # keep the most recent label
+                mem["confidence"] = det.confidence
 
         # Track IDs not seen this frame: age them; count once past threshold.
         for track_id, mem in list(self._tracks.items()):
@@ -196,6 +228,20 @@ class LoadingCameraThread(threading.Thread):
                 label = mem["label"]
                 self._loaded_count[label] = self._loaded_count.get(label, 0) + 1
                 mem["counted"] = True
+                try:
+                    self._record_loading_event(
+                        label,
+                        track_id,
+                        self._loaded_count[label],
+                        frame,
+                        float(mem.get("confidence", 1.0)),
+                    )
+                except Exception:
+                    logger.exception(
+                        "[%s] failed to record loading event on camera %s",
+                        self.tenant_id,
+                        self.camera_id,
+                    )
                 self._last_event = {
                     "label": label,
                     "track_id": track_id,
@@ -277,7 +323,7 @@ class LoadingCameraThread(threading.Thread):
                 time.sleep(1.0)
                 continue
 
-            self._process(detections)
+            self._process(detections, frame)
 
             # Render the annotated live feed only while someone is watching.
             if time.monotonic() < self._viewer_until:

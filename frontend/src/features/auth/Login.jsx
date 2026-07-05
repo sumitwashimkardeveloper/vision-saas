@@ -31,7 +31,7 @@ export default function Login({ onLogin, onSwitch }) {
       <div className="auth-dots" />
       <div className="auth-card">
         <div className="auth-logo">
-          <img src="/ui/assets/logo.webp" alt="GuardVision" className="auth-logo-img" />
+          <img src={`${import.meta.env.BASE_URL}assets/logo.webp`} alt="GuardVision" className="auth-logo-img" />
         </div>
         <h2 className="auth-title">Sign In</h2>
         <p className="auth-subtitle">Welcome back! Please sign in to your account.</p>

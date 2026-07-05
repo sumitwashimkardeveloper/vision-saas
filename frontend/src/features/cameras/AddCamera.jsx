@@ -1,30 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
 import { IconPlus } from "../../layout/icons.jsx";
-import AddByIPModal from "./modals/AddByIPModal.jsx";
-import AddByRTSPModal from "./modals/AddByRTSPModal.jsx";
-import SearchByNVRModal from "./modals/SearchByNVRModal.jsx";
+import AddCameraModal from "./modals/AddCameraModal.jsx";
 import { getCameras, deleteCamera, toggleCamera } from "../../api/cameras.js";
 
-function NVRIcon() {
+function CameraStatIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <line x1="8" y1="21" x2="16" y2="21" />
-      <line x1="12" y1="17" x2="12" y2="21" />
-      <circle cx="7" cy="10" r="1.5" fill="currentColor" stroke="none" />
-      <line x1="10" y1="10" x2="18" y2="10" />
-      <line x1="10" y1="7" x2="18" y2="7" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 7l-7 5 7 5V7z" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
     </svg>
   );
 }
 
-function WifiIcon() {
+function ActiveStatIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-      <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-      <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
     </svg>
   );
 }
@@ -46,64 +38,60 @@ function EditIcon() {
   );
 }
 
-// Detect if the RTSP URL has embedded IP/auth structure and return display info.
+// Pull host/port/auth out of the stored rtsp:// URL for display.
 function parseCamera(rtsp_url) {
   try {
     const u = new URL(rtsp_url);
-    const host = u.hostname;
-    const port = u.port || "554";
-    const username = decodeURIComponent(u.username);
-    const hasPass  = !!u.password;
-    return { isIP: true, host, port, username, hasPass };
+    return { host: u.hostname, port: u.port || "554", username: decodeURIComponent(u.username), hasPass: !!u.password };
   } catch {
-    return { isIP: false };
+    return { host: rtsp_url, port: "", username: "", hasPass: false };
   }
 }
 
 function CameraInfo({ rtsp_url }) {
   const info = parseCamera(rtsp_url);
-  if (info.isIP) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <div style={{ fontSize: "clamp(11px,0.88vw,13.5px)", fontFamily: "monospace", color: "var(--fg)" }}>
-          {info.host} <span style={{ color: "var(--muted)" }}>:{info.port}</span>
-        </div>
-        {info.username && (
-          <div style={{ fontSize: "clamp(10px,0.78vw,11.5px)", color: "var(--muted)" }}>
-            User: {info.username} {info.hasPass ? "· Password: ••••••" : ""}
-          </div>
-        )}
-      </div>
-    );
-  }
   return (
-    <span style={{ fontFamily: "monospace", fontSize: "clamp(10px,0.78vw,11.5px)", color: "var(--muted)", wordBreak: "break-all" }}>
-      {rtsp_url}
-    </span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={{ fontSize: "clamp(11px,0.88vw,13.5px)", fontFamily: "monospace", color: "var(--fg)" }}>
+        {info.host} {info.port && <span style={{ color: "var(--muted)" }}>:{info.port}</span>}
+      </div>
+      {info.username && (
+        <div style={{ fontSize: "clamp(10px,0.78vw,11.5px)", color: "var(--muted)" }}>
+          User: {info.username} {info.hasPass ? "· Password: ••••••" : ""}
+        </div>
+      )}
+    </div>
   );
 }
 
-function CameraType({ rtsp_url }) {
-  const info = parseCamera(rtsp_url);
+function StatCard({ icon, label, value, accent }) {
   return (
-    <span className="tag" style={{
-      background: info.isIP ? "rgba(79,140,255,0.1)" : "rgba(167,139,250,0.1)",
-      color: info.isIP ? "var(--accent)" : "var(--accent-2)",
-      fontSize: "clamp(10px,0.78vw,11.5px)",
-    }}>
-      {info.isIP ? "IP Camera" : "RTSP URL"}
-    </span>
+    <div className="panel" style={{ margin: 0, display: "flex", alignItems: "center", gap: 12, padding: "14px 18px" }}>
+      <span style={{
+        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "var(--accent-soft)", color: accent || "var(--accent)",
+      }}>
+        {icon}
+      </span>
+      <span>
+        <span style={{ display: "block", fontSize: 13, color: "var(--muted)" }}>{label}</span>
+        <span style={{ display: "block", fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>{value}</span>
+      </span>
+    </div>
   );
 }
 
 export default function AddCamera() {
-  const [tab,     setTab]    = useState("scan");
-  const [modal,   setModal]  = useState(null);   // null | "ip" | "rtsp" | "nvr"
-  const [editing, setEditing] = useState(null);  // camera object being edited
   const [cameras, setCameras] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);   // camera being edited, or null for add
 
   const load = useCallback(() => getCameras().then(setCameras).catch(console.error), []);
   useEffect(() => { load(); }, [load]);
+
+  const total  = cameras.length;
+  const active = cameras.filter(c => c.enabled).length;
 
   async function toggle(id) {
     await toggleCamera(id);
@@ -116,77 +104,36 @@ export default function AddCamera() {
     load();
   }
 
+  function openAdd() {
+    setEditing(null);
+    setModalOpen(true);
+  }
+
   function openEdit(cam) {
-    const info = parseCamera(cam.rtsp_url);
     setEditing(cam);
-    setModal(info.isIP ? "ip" : "rtsp");
+    setModalOpen(true);
   }
 
   function closeModal() {
-    setModal(null);
+    setModalOpen(false);
     setEditing(null);
   }
 
   return (
     <div>
-      {/* ── Add form ── */}
-      <div className="panel">
-        <div className="cam-add-toggle">
-          <button className={"cam-toggle-btn" + (tab === "scan" ? " active" : "")} onClick={() => setTab("scan")}>
-            Search And Connect
-          </button>
-          <button className={"cam-toggle-btn" + (tab === "manual" ? " active" : "")} onClick={() => setTab("manual")}>
-            Add Manually
-          </button>
-        </div>
-
-        {tab === "manual" && (
-          <div className="cam-manual-btns">
-            <button className="cam-add-btn" onClick={() => { setEditing(null); setModal("ip"); }}>
-              <IconPlus /> Add by IP Address
-            </button>
-            <button className="cam-add-btn ghost" onClick={() => { setEditing(null); setModal("rtsp"); }}>
-              <IconPlus /> Add by RTSP URL
-            </button>
-          </div>
-        )}
-
-        {tab === "scan" && (
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {/* Search by NVR */}
-            <button
-              className="cam-add-btn"
-              onClick={() => { setEditing(null); setModal("nvr"); }}
-              style={{ flex: 1, minWidth: 200 }}
-            >
-              <NVRIcon /> Search by NVR
-            </button>
-
-            {/* Search by WiFi — Coming Soon */}
-            <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
-              <button
-                className="cam-add-btn ghost"
-                disabled
-                style={{ width: "100%", opacity: 0.5, cursor: "not-allowed" }}
-              >
-                <WifiIcon /> Search by WiFi
-              </button>
-              <span style={{
-                position: "absolute", top: -8, right: 8,
-                background: "var(--accent)", color: "#fff",
-                fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
-                padding: "2px 7px", borderRadius: 20,
-              }}>
-                Coming Soon
-              </span>
-            </div>
-          </div>
-        )}
+      {/* ── Top: stats + add button ── */}
+      <div style={{ display: "flex", alignItems: "stretch", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
+        <StatCard icon={<CameraStatIcon />} label="Total Cameras"  value={total} />
+        <StatCard icon={<ActiveStatIcon />} label="Active Cameras" value={active} accent="var(--success)" />
+        <div style={{ flex: 1 }} />
+        <button className="cam-add-btn" onClick={openAdd} style={{ alignSelf: "center" }}>
+          <IconPlus /> Add Camera
+        </button>
       </div>
 
-      {/* ── Camera list ── */}
+      {/* ── All cameras list ── */}
       <div className="panel">
-        <h2>Cameras</h2>
+        <h2>All Cameras</h2>
         {cameras.length === 0 ? (
           <p style={{ color: "var(--muted)", fontSize: 15, margin: 0 }}>No cameras added yet.</p>
         ) : (
@@ -194,7 +141,6 @@ export default function AddCamera() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Type</th>
                 <th>Connection</th>
                 <th>Status</th>
                 <th></th>
@@ -204,7 +150,6 @@ export default function AddCamera() {
               {cameras.map(cam => (
                 <tr key={cam.id}>
                   <td style={{ fontWeight: 600 }}>{cam.name}</td>
-                  <td><CameraType rtsp_url={cam.rtsp_url} /></td>
                   <td><CameraInfo rtsp_url={cam.rtsp_url} /></td>
                   <td>
                     <span className="tag" style={{
@@ -222,9 +167,7 @@ export default function AddCamera() {
                         style={{
                           padding: "clamp(3px,0.3vw,5px) clamp(6px,0.6vw,9px)", fontSize: "clamp(10.5px,0.82vw,12px)",
                           display: "flex", alignItems: "center", gap: 5,
-                          background: "transparent",
-                          border: "1px solid var(--line)",
-                          color: "var(--fg)",
+                          background: "transparent", border: "1px solid var(--line)", color: "var(--fg)",
                         }}
                       >
                         <EditIcon /> Edit
@@ -243,11 +186,7 @@ export default function AddCamera() {
                         <PowerIcon /> {cam.enabled ? "Stop" : "Start"}
                       </button>
                       {/* Delete */}
-                      <button
-                        className="danger"
-                        style={{ padding: "4px 10px", fontSize: 14 }}
-                        onClick={() => remove(cam.id)}
-                      >
+                      <button className="danger" style={{ padding: "4px 10px", fontSize: 14 }} onClick={() => remove(cam.id)}>
                         Delete
                       </button>
                     </div>
@@ -259,9 +198,7 @@ export default function AddCamera() {
         )}
       </div>
 
-      {modal === "ip"   && <AddByIPModal      onClose={closeModal} onAdded={load} camera={editing} />}
-      {modal === "rtsp" && <AddByRTSPModal    onClose={closeModal} onAdded={load} camera={editing} />}
-      {modal === "nvr"  && <SearchByNVRModal  onClose={closeModal} onAdded={load} />}
+      {modalOpen && <AddCameraModal onClose={closeModal} onAdded={load} camera={editing} />}
     </div>
   );
 }
